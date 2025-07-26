@@ -13,13 +13,14 @@
     "test:coverage": "vitest run --coverage --coverage.reporter=text"
   },
   "dependencies": {
-    "convex-sql": "file:../",
-    "convex": "^1.23.0"
+    "convex": "^1.23.0",
+    "convex-sql": "file:../"
   },
   "devDependencies": {
     "@edge-runtime/vm": "^5.0.0",
     "@typescript-eslint/eslint-plugin": "^6.7.0",
     "@typescript-eslint/parser": "^6.7.0",
+    "@vitest/browser": "^3.2.4",
     "convex-test": "^0.0.38",
     "eslint": "^8.49.0",
     "typescript": "^5.2.2",

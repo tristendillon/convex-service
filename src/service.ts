@@ -32,7 +32,10 @@ export class ConvexService<
   private _schema: ZodSchema
   private _state: BuilderState<DocumentType>
   validator: DocumentType
-  schema: z.ZodObject<any> = z.object({})
+  schema: z.ZodIntersection<z.ZodObject<any>, z.ZodTypeAny> = z.intersection(
+    z.object({}),
+    z.object({})
+  )
   tableName: string = ''
 
   constructor(zodSchema: ZodSchema) {
@@ -48,12 +51,16 @@ export class ConvexService<
 
   name(tableName: string): this {
     this.tableName = tableName
-    this.schema = z
-      .object({
+
+    // Method 1: If your schema is always a ZodObject
+    this.schema = z.intersection(
+      z.object({
         _id: zid(tableName),
         _creationTime: z.number(),
-      })
-      .extend(this._schema._def)
+      }),
+      this._schema
+    )
+
     return this
   }
 
@@ -76,6 +83,7 @@ export class ConvexService<
     // Convex index names must be <=64 chars, start with a letter, and only contain letters, digits, underscores.
     // See: https://docs.convex.dev/database/indexes#naming
     let fixedIndexName = name
+      .trim()
       .replace(/[^a-zA-Z0-9_]/g, '_') // replace invalid chars with underscore
       .replace(/^([^a-zA-Z])/, '_$1') // ensure starts with a letter by prepending underscore if not
       .slice(0, 64) // enforce max length
@@ -173,7 +181,7 @@ export class ConvexService<
   ): this {
     if (args.length === 1) {
       // Single field: unique('field') - INDIVIDUAL field uniqueness
-      this.indexIfNotExists(`by_${String(args[0])}`, [
+      this.indexIfNotExists(`by_${args[0]}`, [
         args[0] as ExtractFieldPathsWithConvexSystemFields<DocumentType>,
       ])
       this._state = {
@@ -192,9 +200,8 @@ export class ConvexService<
         fields: [field] as [ExtractFieldPathsWithoutSystemFields<DocumentType>],
       }))
       for (const unique of newUniques) {
-        indexName += `${String(unique.fields[0]).replace(' ', '_')}_`
+        indexName += `${unique.fields[0]} `
       }
-      indexName = indexName.slice(0, -1)
       this.indexIfNotExists(
         indexName,
         args as [
@@ -275,6 +282,9 @@ export class ConvexService<
       table,
       onDelete,
     }
+    this.indexIfNotExists(`by_${field}`, [
+      field as ExtractFieldPathsWithConvexSystemFields<DocumentType>,
+    ])
     return this
   }
 

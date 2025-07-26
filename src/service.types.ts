@@ -12,13 +12,14 @@ import {
   type GenericQueryCtx,
 } from 'convex/server'
 import { z } from 'zod'
-import { zodToConvex } from 'convex-helpers/server/zod'
+import { zodToConvex, type Zid } from 'convex-helpers/server/zod'
 import {
   GenericId,
   GenericValidator,
   VId,
   VObject,
   Validator,
+  type ValidatorJSON,
 } from 'convex/values'
 
 export type Index<
@@ -270,6 +271,10 @@ type ZodSchemaParseWithSystemFields<
 // Updated interface with improved relation method
 export interface ConvexServiceInterface<
   ZodSchema extends z.ZodTypeAny = z.ZodTypeAny,
+  Intersection extends z.ZodIntersection<
+    z.ZodObject<any>,
+    z.ZodTypeAny
+  > = z.ZodIntersection<z.ZodObject<any>, z.ZodTypeAny>,
   TableName extends string = string,
   DocumentType extends ConvexValidatorFromZod<ZodSchema> = ConvexValidatorFromZod<ZodSchema>,
   Indexes extends GenericTableIndexes = {},
@@ -278,7 +283,7 @@ export interface ConvexServiceInterface<
   State extends BuilderState<DocumentType> = BuilderState<DocumentType>
 > extends TableDefinition<DocumentType, Indexes, SearchIndexes, VectorIndexes> {
   tableName: TableName
-  schema: ZodSchema
+  schema: Intersection
   /**
    * Export the contents of this definition.
    *
@@ -286,10 +291,10 @@ export interface ConvexServiceInterface<
    * @internal
    */
   export(): {
-    indexes: Indexes
-    searchIndexes: SearchIndexes
-    vectorIndexes: VectorIndexes
-    documentType: DocumentType
+    indexes: Index[]
+    searchIndexes: SearchIndex[]
+    vectorIndexes: VectorIndex[]
+    documentType: ValidatorJSON
     state: State
   }
 
@@ -297,6 +302,13 @@ export interface ConvexServiceInterface<
     tableName: NewTableName
   ): ConvexServiceInterface<
     ZodSchema,
+    z.ZodIntersection<
+      z.ZodObject<{
+        _id: Zid<NewTableName>
+        _creationTime: z.ZodNumber
+      }>,
+      ZodSchema
+    >,
     NewTableName,
     DocumentType,
     Indexes,
@@ -314,6 +326,7 @@ export interface ConvexServiceInterface<
     fields: [FirstFieldPath, ...RestFieldPaths]
   ): ConvexServiceInterface<
     ZodSchema,
+    Intersection,
     TableName,
     DocumentType,
     Expand<
@@ -334,6 +347,7 @@ export interface ConvexServiceInterface<
     indexConfig: Expand<SearchIndexConfig<SearchField, FilterFields>>
   ): ConvexServiceInterface<
     ZodSchema,
+    Intersection,
     TableName,
     DocumentType,
     Indexes,
@@ -360,6 +374,7 @@ export interface ConvexServiceInterface<
     indexConfig: Expand<VectorIndexConfig<VectorField, FilterFields>>
   ): ConvexServiceInterface<
     ZodSchema,
+    Intersection,
     TableName,
     DocumentType,
     Indexes,
@@ -392,6 +407,7 @@ export interface ConvexServiceInterface<
     value: DefaultValue
   ): ConvexServiceInterface<
     ZodSchema,
+    Intersection,
     TableName,
     DocumentType,
     Indexes,
@@ -408,6 +424,7 @@ export interface ConvexServiceInterface<
     field: FieldPath
   ): ConvexServiceInterface<
     ZodSchema,
+    Intersection,
     TableName,
     DocumentType,
     Expand<
@@ -443,6 +460,7 @@ export interface ConvexServiceInterface<
     ...rest: RestFieldPaths
   ): ConvexServiceInterface<
     ZodSchema,
+    Intersection,
     TableName,
     DocumentType,
     Expand<
@@ -479,6 +497,7 @@ export interface ConvexServiceInterface<
     schema?: Schema
   ): ConvexServiceInterface<
     ZodSchema,
+    Intersection,
     TableName,
     DocumentType,
     Indexes,
@@ -504,6 +523,7 @@ export interface ConvexServiceInterface<
     validationFn: ValidationFn
   ): ConvexServiceInterface<
     ZodSchema,
+    Intersection,
     TableName,
     DocumentType,
     Indexes,
@@ -528,9 +548,16 @@ export interface ConvexServiceInterface<
     onDelete: OnDelete
   ): ConvexServiceInterface<
     ZodSchema,
+    Intersection,
     TableName,
     DocumentType,
-    Indexes,
+    Expand<
+      Indexes &
+        Record<
+          `by_${ReplacePeriodWithUnderscore<FieldPath>}`,
+          [FieldPath, '_creationTime']
+        >
+    >,
     SearchIndexes,
     VectorIndexes,
     UpdateRelations<State, DocumentType, FieldPath, TableName, OnDelete>
