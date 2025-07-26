@@ -253,12 +253,14 @@ type ZodSchemaParseWithSystemFields<
 // Updated interface with improved relation method
 export interface ConvexServiceInterface<
   ZodSchema extends z.ZodTypeAny = z.ZodTypeAny,
+  TableName extends string = string,
   DocumentType extends ConvexValidatorFromZod<ZodSchema> = ConvexValidatorFromZod<ZodSchema>,
   Indexes extends GenericTableIndexes = {},
   SearchIndexes extends GenericTableSearchIndexes = {},
   VectorIndexes extends GenericTableVectorIndexes = {},
   State extends BuilderState<DocumentType> = BuilderState<DocumentType>
 > extends TableDefinition<DocumentType, Indexes, SearchIndexes, VectorIndexes> {
+  tableName: TableName
   schema: ZodSchemaParseWithSystemFields<
     ZodSchema,
     TableNamesInDataModel<GenericDataModel>
@@ -277,6 +279,18 @@ export interface ConvexServiceInterface<
     state: State
   }
 
+  name<NewTableName extends string>(
+    tableName: NewTableName
+  ): ConvexServiceInterface<
+    ZodSchema,
+    NewTableName,
+    DocumentType,
+    Indexes,
+    SearchIndexes,
+    VectorIndexes,
+    State
+  >
+
   index<
     IndexName extends string,
     FirstFieldPath extends ExtractFieldPathsWithConvexSystemFields<DocumentType>,
@@ -286,6 +300,7 @@ export interface ConvexServiceInterface<
     fields: [FirstFieldPath, ...RestFieldPaths]
   ): ConvexServiceInterface<
     ZodSchema,
+    TableName,
     DocumentType,
     Expand<
       Indexes &
@@ -305,6 +320,7 @@ export interface ConvexServiceInterface<
     indexConfig: Expand<SearchIndexConfig<SearchField, FilterFields>>
   ): ConvexServiceInterface<
     ZodSchema,
+    TableName,
     DocumentType,
     Indexes,
     Expand<
@@ -330,6 +346,7 @@ export interface ConvexServiceInterface<
     indexConfig: Expand<VectorIndexConfig<VectorField, FilterFields>>
   ): ConvexServiceInterface<
     ZodSchema,
+    TableName,
     DocumentType,
     Indexes,
     SearchIndexes,
@@ -361,6 +378,7 @@ export interface ConvexServiceInterface<
     value: DefaultValue
   ): ConvexServiceInterface<
     ZodSchema,
+    TableName,
     DocumentType,
     Indexes,
     SearchIndexes,
@@ -376,6 +394,7 @@ export interface ConvexServiceInterface<
     field: FieldPath
   ): ConvexServiceInterface<
     ZodSchema,
+    TableName,
     DocumentType,
     Indexes,
     SearchIndexes,
@@ -404,6 +423,7 @@ export interface ConvexServiceInterface<
     ...rest: RestFieldPaths
   ): ConvexServiceInterface<
     ZodSchema,
+    TableName,
     DocumentType,
     Indexes,
     SearchIndexes,
@@ -434,6 +454,7 @@ export interface ConvexServiceInterface<
     fields: [FirstFieldPath, ...RestFieldPaths]
   ): ConvexServiceInterface<
     ZodSchema,
+    TableName,
     DocumentType,
     Indexes,
     SearchIndexes,
@@ -457,6 +478,7 @@ export interface ConvexServiceInterface<
     schema?: Schema
   ): ConvexServiceInterface<
     ZodSchema,
+    TableName,
     DocumentType,
     Indexes,
     SearchIndexes,
@@ -481,6 +503,7 @@ export interface ConvexServiceInterface<
     validationFn: ValidationFn
   ): ConvexServiceInterface<
     ZodSchema,
+    TableName,
     DocumentType,
     Indexes,
     SearchIndexes,
@@ -504,6 +527,7 @@ export interface ConvexServiceInterface<
     onDelete: OnDelete
   ): ConvexServiceInterface<
     ZodSchema,
+    TableName,
     DocumentType,
     Indexes,
     SearchIndexes,

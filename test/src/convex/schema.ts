@@ -4,7 +4,6 @@ import { zid } from 'convex-helpers/server/zod'
 
 // Service with schema validation in the refine/superRefine
 const ProfileService = defineService(
-  'profiles',
   z
     .object({
       name: z.string(),
@@ -14,11 +13,12 @@ const ProfileService = defineService(
       message: 'Age must be at least 18',
       path: ['age'],
     })
-).validate()
+)
+  .name('profiles')
+  .validate()
 
 // Service with schema validation in the validate function
 const UserService = defineService(
-  'users',
   z.object({
     username: z
       .string()
@@ -30,6 +30,7 @@ const UserService = defineService(
     profile: zid('profiles'),
   })
 )
+  .name('users')
   .relation('profile', 'profiles', 'cascade')
   .default('age', 18)
   .unique('username')
@@ -44,14 +45,13 @@ const UserService = defineService(
   // but we still lose out on the auto-generated type safety on the document.
   .validate(async (ctx, document) => {
     const users = await ctx.db.query('users').collect()
-    const parsedUsers = users.map((user) => {
-      const parsedUser = UserService.schema.parse(user)
-      return parsedUser
-    })
-    console.log(parsedUsers)
+    // This is to get the type safety on the document. This will throw a validation error if the Serivce doesnt have the
+    // base validate builder to validate from a custom schema or a passed in schema.
+    const parsedUsers = users.map((user) => UserService.schema.parse(user))
   })
 
-export default defineServiceSchema({
-  users: UserService,
-  profiles: ProfileService,
-})
+// export default defineServiceSchema({
+//   users: UserService,
+//   profiles: ProfileService,
+// })
+export default defineServiceSchema([UserService, ProfileService])

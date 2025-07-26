@@ -1,8 +1,24 @@
-import type { GenericSchema, SchemaDefinition } from 'convex/server'
+import type { ConvexServiceInterface } from './service.types'
 
-export interface ServiceSchemaDefinition<
-  Schema extends GenericSchema,
+type GetTableName<T> = T extends ConvexServiceInterface ? T['tableName'] : never
+
+// Type to convert array of services to a record type
+export type SchemaFromServiceNames<
+  Services extends ReadonlyArray<ConvexServiceInterface>
+> = {
+  [K in keyof Services as Services[K] extends ConvexServiceInterface
+    ? GetTableName<Services[K]>
+    : never]: Services[K]
+}
+
+// reimplementing the schema definition interface to get the type safety on the schema
+export interface ServiceSchemaDefinitionInterface<
+  Services extends ReadonlyArray<ConvexServiceInterface>,
+  Schema extends SchemaFromServiceNames<Services>,
   StrictTableTypes extends boolean
-> extends SchemaDefinition<Schema, StrictTableTypes> {
+> {
+  tables: Schema
+  strictTableNameTypes: StrictTableTypes
+  readonly schemaValidation: boolean
   export(): string
 }

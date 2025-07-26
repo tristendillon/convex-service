@@ -26,30 +26,35 @@ export class ConvexService<
   ZodSchema extends z.ZodTypeAny,
   DocumentType extends ConvexValidatorFromZod<ZodSchema> = ConvexValidatorFromZod<ZodSchema>
 > {
-  // Internal state with proper typing
-  validator: DocumentType
   private indexes: Index<DocumentType>[] = []
   private searchIndexes: SearchIndex<DocumentType>[] = []
   private vectorIndexes: VectorIndex<DocumentType>[] = []
   private _schema: ZodSchema
   private _state: BuilderState<DocumentType>
-  public schema: z.ZodObject<any>
+  validator: DocumentType
+  schema: z.ZodObject<any> = z.object({})
+  tableName: string = ''
 
-  constructor(tableName: string, zodSchema: ZodSchema) {
+  constructor(zodSchema: ZodSchema) {
     this.validator = zodToConvex(zodSchema) as DocumentType
     this._schema = zodSchema
-    this.schema = z
-      .object({
-        _id: zid(tableName),
-        _creationTime: z.number(),
-      })
-      .extend(zodSchema._def)
     this._state = {
       defaults: {},
       uniques: [],
       validate: {},
       relations: {},
     } as BuilderState<DocumentType>
+  }
+
+  name(tableName: string): this {
+    this.tableName = tableName
+    this.schema = z
+      .object({
+        _id: zid(tableName),
+        _creationTime: z.number(),
+      })
+      .extend(this._schema._def)
+    return this
   }
 
   index<
@@ -258,11 +263,9 @@ export class ConvexService<
 
 // Factory function to create a new ConvexService with proper typing
 export function defineService<ZodSchema extends z.ZodTypeAny>(
-  tableName: string,
   zodSchema: ZodSchema
 ): ConvexServiceInterface<ZodSchema> {
   return new ConvexService(
-    tableName,
     zodSchema
   ) as unknown as ConvexServiceInterface<ZodSchema>
 }

@@ -1,5 +1,8 @@
 import { type DefineSchemaOptions } from 'convex/server'
-import type { ServiceSchemaDefinition as IServiceSchemaDefinition } from './schema.types'
+import type {
+  SchemaFromServiceNames,
+  ServiceSchemaDefinitionInterface,
+} from './schema.types'
 import type { ConvexServiceInterface } from './service.types'
 import type { GenericSchema } from 'convex/server'
 
@@ -54,14 +57,36 @@ export class ServiceSchemaDefinition<
 }
 
 export const defineServiceSchema = <
-  Schema extends GenericSchema,
+  Services extends Array<ConvexServiceInterface>,
+  Schema extends SchemaFromServiceNames<Services>,
   StrictTableTypes extends boolean
 >(
-  schema: Schema,
+  services: Services,
   options?: DefineSchemaOptions<boolean>
 ) => {
+  const schema = services.reduce((acc, service) => {
+    acc[service.tableName] = service
+    return acc
+  }, {} as GenericSchema)
   return new ServiceSchemaDefinition(
     schema,
     options
-  ) as unknown as IServiceSchemaDefinition<Schema, StrictTableTypes>
+  ) as unknown as ServiceSchemaDefinitionInterface<
+    Services,
+    Schema,
+    StrictTableTypes
+  >
 }
+
+// export const defineServiceSchema = <
+//   Schema extends GenericSchema,
+//   StrictTableTypes extends boolean
+// >(
+//   schema: Schema,
+//   options?: DefineSchemaOptions<boolean>
+// ) => {
+//   return new ServiceSchemaDefinition(
+//     schema,
+//     options
+//   ) as unknown as IServiceSchemaDefinition<Schema, StrictTableTypes>
+// }
