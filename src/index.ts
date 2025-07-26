@@ -1,5 +1,6 @@
 // Minimal exports for better tree shaking
-export { defineService } from './schema'
+export { defineService } from './service'
+export { defineServiceSchema } from './schema'
 
 // Essential types only
 // export type {
