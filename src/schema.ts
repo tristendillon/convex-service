@@ -1,8 +1,5 @@
 import { type DefineSchemaOptions } from 'convex/server'
-import type {
-  SchemaFromServiceNames,
-  ServiceSchemaDefinitionInterface,
-} from './schema.types'
+import type { ServiceSchemaDefinitionInterface } from './schema.types'
 import type { ConvexServiceInterface } from './service.types'
 import type { GenericSchema } from 'convex/server'
 
@@ -57,36 +54,29 @@ export class ServiceSchemaDefinition<
 }
 
 export const defineServiceSchema = <
-  Services extends Array<ConvexServiceInterface>,
-  Schema extends SchemaFromServiceNames<Services>,
+  Schema extends GenericSchema,
   StrictTableTypes extends boolean
 >(
-  services: Services,
+  schema: Schema,
   options?: DefineSchemaOptions<boolean>
 ) => {
-  const schema = services.reduce((acc, service) => {
-    acc[service.tableName] = service
-    return acc
-  }, {} as GenericSchema)
+  for (const [tableName, definition] of Object.entries(schema)) {
+    const service = definition as unknown as ConvexServiceInterface
+    if (!service.tableName) {
+      throw new Error(
+        `Service name is not defined. Please define the service name with the .name builder!`
+      )
+    }
+    if (service.tableName != tableName) {
+      throw new Error(
+        `Table name mismatch!\n` +
+          ` - Name defined in service: '${service.tableName}'\n` +
+          ` - Name defined in schema: '${tableName}'`
+      )
+    }
+  }
   return new ServiceSchemaDefinition(
     schema,
     options
-  ) as unknown as ServiceSchemaDefinitionInterface<
-    Services,
-    Schema,
-    StrictTableTypes
-  >
+  ) as unknown as ServiceSchemaDefinitionInterface<Schema, StrictTableTypes>
 }
-
-// export const defineServiceSchema = <
-//   Schema extends GenericSchema,
-//   StrictTableTypes extends boolean
-// >(
-//   schema: Schema,
-//   options?: DefineSchemaOptions<boolean>
-// ) => {
-//   return new ServiceSchemaDefinition(
-//     schema,
-//     options
-//   ) as unknown as IServiceSchemaDefinition<Schema, StrictTableTypes>
-// }

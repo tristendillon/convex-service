@@ -74,6 +74,23 @@ type GetFieldType<
     : never
   : never
 
+type ReplacePeriodWithUnderscore<T extends string> =
+  T extends `${infer Before}.${infer After}`
+    ? `${Before}_${ReplacePeriodWithUnderscore<After>}`
+    : T
+
+// Helper type to join field paths with underscores
+type JoinFieldPathsWithUnderscores<T extends readonly string[]> =
+  T extends readonly [infer First, ...infer Rest]
+    ? First extends string
+      ? Rest extends readonly string[]
+        ? Rest['length'] extends 0
+          ? ReplacePeriodWithUnderscore<First>
+          : `${ReplacePeriodWithUnderscore<First>}_${JoinFieldPathsWithUnderscores<Rest>}`
+        : never
+      : never
+    : ''
+
 // Improved ValueOrFunctionFromValidator using document type extraction
 export type ValueOrFunctionFromValidator<
   ValidatorType extends GenericValidator,
@@ -261,10 +278,7 @@ export interface ConvexServiceInterface<
   State extends BuilderState<DocumentType> = BuilderState<DocumentType>
 > extends TableDefinition<DocumentType, Indexes, SearchIndexes, VectorIndexes> {
   tableName: TableName
-  schema: ZodSchemaParseWithSystemFields<
-    ZodSchema,
-    TableNamesInDataModel<GenericDataModel>
-  >
+  schema: ZodSchema
   /**
    * Export the contents of this definition.
    *
@@ -396,7 +410,13 @@ export interface ConvexServiceInterface<
     ZodSchema,
     TableName,
     DocumentType,
-    Indexes,
+    Expand<
+      Indexes &
+        Record<
+          `by_${ReplacePeriodWithUnderscore<FieldPath>}`,
+          [FieldPath, '_creationTime']
+        >
+    >,
     SearchIndexes,
     VectorIndexes,
     Expand<
@@ -425,7 +445,15 @@ export interface ConvexServiceInterface<
     ZodSchema,
     TableName,
     DocumentType,
-    Indexes,
+    Expand<
+      Indexes &
+        Record<
+          `by_${JoinFieldPathsWithUnderscores<
+            [FirstFieldPath, SecondFieldPath, ...RestFieldPaths]
+          >}`,
+          [FirstFieldPath, SecondFieldPath, ...RestFieldPaths, '_creationTime']
+        >
+    >,
     SearchIndexes,
     VectorIndexes,
     Expand<
@@ -437,33 +465,6 @@ export interface ConvexServiceInterface<
           ...{
             [I in keyof RestFieldPaths]: { fields: [RestFieldPaths[I]] }
           }
-        ]
-      }
-    >
-  >
-
-  /**
-   * Builder function to define a composite unique constraint (combination of fields must be unique).
-   * @param fields - Array of fields that together form a unique constraint
-   * @returns A ConvexService instance with the unique constraint set
-   */
-  unique<
-    FirstFieldPath extends ExtractFieldPathsWithoutSystemFields<DocumentType>,
-    RestFieldPaths extends ExtractFieldPathsWithoutSystemFields<DocumentType>[]
-  >(
-    fields: [FirstFieldPath, ...RestFieldPaths]
-  ): ConvexServiceInterface<
-    ZodSchema,
-    TableName,
-    DocumentType,
-    Indexes,
-    SearchIndexes,
-    VectorIndexes,
-    Expand<
-      Omit<State, 'uniques'> & {
-        uniques: [
-          ...State['uniques'],
-          { fields: [FirstFieldPath, ...RestFieldPaths] }
         ]
       }
     >

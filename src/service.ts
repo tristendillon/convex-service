@@ -57,15 +57,34 @@ export class ConvexService<
     return this
   }
 
+  private indexIfNotExists<
+    IndexName extends string,
+    FirstFieldPath extends ExtractFieldPathsWithConvexSystemFields<DocumentType>,
+    RestFieldPaths extends ExtractFieldPathsWithConvexSystemFields<DocumentType>[]
+  >(name: IndexName, fields: [FirstFieldPath, ...RestFieldPaths]): void {
+    if (this.indexes.find((index) => index.indexDescriptor === name)) {
+      return
+    }
+    this.index(name, fields)
+  }
+
   index<
     IndexName extends string,
     FirstFieldPath extends ExtractFieldPathsWithConvexSystemFields<DocumentType>,
     RestFieldPaths extends ExtractFieldPathsWithConvexSystemFields<DocumentType>[]
   >(name: IndexName, fields: [FirstFieldPath, ...RestFieldPaths]): this {
+    // Convex index names must be <=64 chars, start with a letter, and only contain letters, digits, underscores.
+    // See: https://docs.convex.dev/database/indexes#naming
+    let fixedIndexName = name
+      .replace(/[^a-zA-Z0-9_]/g, '_') // replace invalid chars with underscore
+      .replace(/^([^a-zA-Z])/, '_$1') // ensure starts with a letter by prepending underscore if not
+      .slice(0, 64) // enforce max length
+
     this.indexes.push({
-      indexDescriptor: name,
-      fields: fields as ExtractFieldPathsWithConvexSystemFields<DocumentType>[],
+      indexDescriptor: fixedIndexName,
+      fields: fields,
     })
+
     return this
   }
 
@@ -116,7 +135,7 @@ export class ConvexService<
     FieldPath extends ExtractFieldPathsWithoutSystemFields<DocumentType>,
     DefaultValue extends ValueOrFunctionFromValidator<DocumentType, FieldPath>
   >(field: FieldPath, value: DefaultValue): this {
-    ;(this._state.defaults as any)[field] = value
+    this._state.defaults[field] = value
     return this
   }
 
@@ -152,19 +171,11 @@ export class ConvexService<
           ]
         ]
   ): this {
-    if (args.length === 1 && Array.isArray(args[0])) {
-      // Array format: unique(['field1', 'field2']) - COMPOSITE uniqueness
-      this._state = {
-        ...this._state,
-        uniques: [
-          ...this._state.uniques,
-          {
-            fields: args[0],
-          },
-        ],
-      }
-    } else if (args.length === 1) {
+    if (args.length === 1) {
       // Single field: unique('field') - INDIVIDUAL field uniqueness
+      this.indexIfNotExists(`by_${String(args[0])}`, [
+        args[0] as ExtractFieldPathsWithConvexSystemFields<DocumentType>,
+      ])
       this._state = {
         ...this._state,
         uniques: [
@@ -175,13 +186,33 @@ export class ConvexService<
         ],
       }
     } else {
-      // Rest parameters: unique('field1', 'field2', ...) - MULTIPLE INDIVIDUAL uniqueness
+      // Rest parameters: unique('field1', 'field2', ...) - Composite uniqueness
+      let indexName = 'by_'
       const newUniques = args.map((field) => ({
         fields: [field] as [ExtractFieldPathsWithoutSystemFields<DocumentType>],
       }))
+      for (const unique of newUniques) {
+        indexName += `${String(unique.fields[0]).replace(' ', '_')}_`
+      }
+      indexName = indexName.slice(0, -1)
+      this.indexIfNotExists(
+        indexName,
+        args as [
+          ExtractFieldPathsWithConvexSystemFields<DocumentType>,
+          ...ExtractFieldPathsWithConvexSystemFields<DocumentType>[]
+        ]
+      )
       this._state = {
         ...this._state,
-        uniques: [...this._state.uniques, ...newUniques],
+        uniques: [
+          ...this._state.uniques,
+          {
+            fields: newUniques.map((unique) => unique.fields[0]) as [
+              ExtractFieldPathsWithoutSystemFields<DocumentType>,
+              ...ExtractFieldPathsWithoutSystemFields<DocumentType>[]
+            ],
+          },
+        ],
       }
     }
     return this
@@ -192,7 +223,11 @@ export class ConvexService<
   validate<Schema extends z.ZodTypeAny>(schema: Schema): this
   validate(
     validationFn: (
-      ctx: GenericQueryCtx<GenericDataModel>
+      ctx: GenericQueryCtx<GenericDataModel>,
+      document: Expand<
+        z.infer<ZodSchema> &
+          SystemFieldsWithId<TableNamesInDataModel<GenericDataModel>>
+      >
     ) => Promise<void> | void
   ): this
   validate(
@@ -258,6 +293,25 @@ export class ConvexService<
       // Include the state in the export for framework usage
       state: this._state,
     }
+  }
+
+  /**
+   * This API is experimental: it may change or disappear.
+   *
+   * Returns indexes defined on this table.
+   * Intended for the advanced use cases of dynamically deciding which index to use for a query.
+   * If you think you need this, please chime in on ths issue in the Convex JS GitHub repo.
+   * https://github.com/get-convex/convex-js/issues/49
+   */
+  ' indexes'(): { indexDescriptor: string; fields: string[] }[] {
+    return this.indexes
+  }
+
+  /**
+   * Work around for https://github.com/microsoft/TypeScript/issues/57035
+   */
+  protected self(): this {
+    return this
   }
 }
 
