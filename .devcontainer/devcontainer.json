@@ -1,0 +1,30 @@
+{
+  "name": "ConvexSQL",
+  "image": "mcr.microsoft.com/devcontainers/typescript-node:22-bookworm",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "esbenp.prettier-vscode",
+        "dbaeumer.vscode-eslint",
+        "bradlc.vscode-tailwindcss",
+        "ms-vscode.vscode-typescript-next"
+      ],
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash"
+      }
+    }
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "installJq": true,
+      "upgradePackages": true
+    },
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {},
+    "ghcr.io/devcontainers/features/git:1": {},
+    "ghcr.io/devcontainers/features/git-lfs:1": {},
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/devcontainers-extra/features/curl-apt-get:1": {},
+    "ghcr.io/devcontainers-extra/features/pnpm:2": {}
+  },
+  "postCreateCommand": "sed -i 's/\r//g' .devcontainer/post-create.sh && bash .devcontainer/post-create.sh"
+}
