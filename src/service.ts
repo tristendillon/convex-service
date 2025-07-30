@@ -21,6 +21,7 @@ import {
   type TableNamesInDataModel,
   type Expand,
 } from 'convex/server'
+import { GenericValidator, VObject } from 'convex/values'
 
 export class ConvexService<
   ZodSchema extends z.ZodTypeAny,
@@ -30,7 +31,7 @@ export class ConvexService<
   private searchIndexes: SearchIndex<DocumentType>[] = []
   private vectorIndexes: VectorIndex<DocumentType>[] = []
   private _schema: ZodSchema
-  private _state: BuilderState<DocumentType>
+  private _state: BuilderState
   validator: DocumentType
   schema: z.ZodIntersection<z.ZodObject<any>, z.ZodTypeAny> = z.intersection(
     z.object({}),
@@ -46,7 +47,7 @@ export class ConvexService<
       uniques: [],
       validate: {},
       relations: {},
-    } as BuilderState<DocumentType>
+    } as BuilderState
   }
 
   name(tableName: string): this {
@@ -138,12 +139,77 @@ export class ConvexService<
     return this
   }
 
+  // private createDefaultValidator<
+  //   FieldPath extends ExtractFieldPathsWithoutSystemFields<DocumentType>
+  // >(
+  //   field: FieldPath,
+  //   value: ValueOrFunctionFromValidator<DocumentType, FieldPath>
+  // ): ValidatorsRecord<DocumentType>['withoutSystemFieldsOrDefaults'] {
+  //   const newValidator = {} as Record<string, any>
+
+  //   // Parse the field path to handle nested objects
+  //   const fieldParts = (field as string).split('.')
+  //   const rootField = fieldParts[0]
+  //   const remainingPath = fieldParts.slice(1).join('.')
+
+  //   // Get the keys as strings, not as validator objects
+  //   for (const key of Object.keys(
+  //     this.validators.withoutSystemFieldsOrDefaults
+  //   ) as Array<string>) {
+  //     // Get the actual validator object for this key
+  //     const validator = this.validators.withoutSystemFieldsOrDefaults as Record<
+  //       string,
+  //       any
+  //     >
+  //     const validatorForKey = validator[key]
+
+  //     // If this is an object validator and we're targeting a nested field within it
+  //     if (
+  //       validatorForKey &&
+  //       validatorForKey.kind === 'object' &&
+  //       key === rootField &&
+  //       remainingPath
+  //     ) {
+  //       // Recursively call for the nested path
+  //       const nestedValidator = this.createDefaultValidator(
+  //         remainingPath as FieldPath,
+  //         value
+  //       )
+  //       newValidator[key] = {
+  //         ...validatorForKey,
+  //         fields: nestedValidator,
+  //       } as unknown as GenericValidator
+  //     }
+  //     // If this is an object validator but not the target field
+  //     else if (validatorForKey.kind === 'object' && key !== rootField) {
+  //       // Keep the object validator as-is
+  //       newValidator[key] = validatorForKey
+  //     }
+  //     // If this is the exact field we want to exclude (leaf level)
+  //     else if (key === field || (key === rootField && !remainingPath)) {
+  //       // Skip this field (exclude it from the new validator)
+  //       continue
+  //     }
+  //     // For all other fields, keep them
+  //     else {
+  //       newValidator[key] = validatorForKey
+  //     }
+  //   }
+
+  //   return newValidator
+  // }
+
   // Default method with proper typing
   default<
     FieldPath extends ExtractFieldPathsWithoutSystemFields<DocumentType>,
     DefaultValue extends ValueOrFunctionFromValidator<DocumentType, FieldPath>
   >(field: FieldPath, value: DefaultValue): this {
     this._state.defaults[field] = value
+
+    // this.validators.withoutSystemFieldsOrDefaults = this.createDefaultValidator(
+    //   field,
+    //   value
+    // )
     return this
   }
 
@@ -275,7 +341,7 @@ export class ConvexService<
   >(
     field: FieldPath,
     table: TableName,
-    onDelete: 'cascade' | 'restrict'
+    onDelete: 'cascade' | 'restrict' | 'setOptional'
   ): this {
     this._state.relations[field] = {
       path: field,

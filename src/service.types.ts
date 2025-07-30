@@ -16,8 +16,11 @@ import { zodToConvex, type Zid } from 'convex-helpers/server/zod'
 import {
   GenericId,
   GenericValidator,
+  VArray,
   VId,
+  VLiteral,
   VObject,
+  VUnion,
   Validator,
   type ValidatorJSON,
 } from 'convex/values'
@@ -104,12 +107,47 @@ export type SystemFieldsWithId<TableName extends string> = SystemFields & {
   _id: GenericId<TableName>
 }
 
+export type GetValidatorAtPath<
+  V extends Validator<any, any, any>,
+  Path extends string
+> = Path extends `${infer Key}.${infer Rest}`
+  ? V extends VObject<any, infer Fields, any, any>
+    ? Key extends keyof Fields
+      ? GetValidatorAtPath<Fields[Key], Rest>
+      : never
+    : V extends VArray<any, infer Element, any>
+    ? GetValidatorAtPath<Element, Path>
+    : never
+  : V extends VObject<any, infer Fields, any, any>
+  ? Path extends keyof Fields
+    ? Fields[Path]
+    : never
+  : V extends VArray<any, infer Element, any>
+  ? GetValidatorAtPath<Element, Path>
+  : never
+
+export type IsOptionalValidator<V extends Validator<any, any, any>> =
+  V extends Validator<any, 'optional', any> ? true : false
+
+export type BaseOnDelete = 'cascade' | 'restrict'
+
+export type OnDelete<
+  DocumentType extends Validator<any, any, any>,
+  FieldPath extends GetAllVIdPaths<DocumentType>
+> = GetValidatorAtPath<DocumentType, FieldPath> extends infer FieldValidator
+  ? FieldValidator extends Validator<any, any, any>
+    ?
+        | BaseOnDelete
+        | (IsOptionalValidator<FieldValidator> extends true
+            ? 'setOptional'
+            : never)
+    : BaseOnDelete
+  : BaseOnDelete
+
 export type JoinFieldPaths<
   Start extends string,
   End extends string
 > = `${Start}.${End}`
-
-// Simplified VId path extraction with reduced complexity
 export type GetAllVIdPaths<
   V extends Validator<any, any, any>,
   Prefix extends string = '',
@@ -135,6 +173,16 @@ export type GetAllVIdPaths<
               >
           : never
       }[keyof Fields]
+    : never
+  : V extends VArray<any, infer Element, any>
+  ? GetAllVIdPaths<Element, Prefix, Add1<Depth>>
+  : V extends VUnion<any, infer Members, any, any>
+  ? Members extends readonly Validator<any, any, any>[]
+    ? {
+        [K in keyof Members]: Members[K] extends Validator<any, any, any>
+          ? GetAllVIdPaths<Members[K], Prefix, Add1<Depth>>
+          : never
+      }[number]
     : never
   : never
 
@@ -193,16 +241,14 @@ type ValidateState<ZodSchema extends z.ZodTypeAny = z.ZodTypeAny> = Partial<{
   ) => Promise<void> | void
 }>
 
-type OnDelete = 'cascade' | 'restrict'
-
-// FIX 2: Break the recursive relation by pre-computing the VId paths type
 type RelationConfig<
   DocumentType extends GenericValidator,
   FieldPath extends GetAllVIdPaths<DocumentType>
 > = {
   path: FieldPath
   table: TableNamesInDataModel<GenericDataModel>
-  onDelete: OnDelete
+  // cant precompute onDelete since it will give an infinitely deep type
+  onDelete: BaseOnDelete | 'setOptional'
 }
 
 // FIX 3: Use a mapped type that defers the complex computation
@@ -226,7 +272,7 @@ type UpdateRelations<
   DocumentType extends GenericValidator,
   FieldPath extends GetAllVIdPaths<DocumentType>,
   TableName extends TableNamesInDataModel<GenericDataModel>,
-  OnDeleteAction extends OnDelete
+  OnDeleteAction extends OnDelete<DocumentType, FieldPath>
 > = State extends BuilderState<DocumentType>
   ? Omit<State, 'relations'> & {
       relations: State['relations'] & {
@@ -238,35 +284,6 @@ type UpdateRelations<
       }
     }
   : never
-
-// Trying to get the system fields in the return type of the parse and safeParse functions
-// this is not working :(
-type ZodSchemaParseWithSystemFields<
-  ZodSchema extends z.ZodTypeAny,
-  TableName extends string
-> = ZodSchema & {
-  parse: (
-    data: unknown
-  ) => Expand<z.infer<ZodSchema> & SystemFieldsWithId<TableName>>
-  parseAsync: (
-    data: unknown
-  ) => Promise<Expand<z.infer<ZodSchema> & SystemFieldsWithId<TableName>>>
-
-  safeParse: (
-    data: unknown
-  ) => z.SafeParseReturnType<
-    unknown,
-    Expand<z.infer<ZodSchema> & SystemFieldsWithId<TableName>>
-  >
-  safeParseAsync: (
-    data: unknown
-  ) => Promise<
-    z.SafeParseReturnType<
-      unknown,
-      Expand<z.infer<ZodSchema> & SystemFieldsWithId<TableName>>
-    >
-  >
-}
 
 // Updated interface with improved relation method
 export interface ConvexServiceInterface<
@@ -545,7 +562,7 @@ export interface ConvexServiceInterface<
   >(
     field: FieldPath,
     table: TableName,
-    onDelete: OnDelete
+    onDelete: OnDelete<DocumentType, FieldPath>
   ): ConvexServiceInterface<
     ZodSchema,
     Intersection,
@@ -560,6 +577,59 @@ export interface ConvexServiceInterface<
     >,
     SearchIndexes,
     VectorIndexes,
-    UpdateRelations<State, DocumentType, FieldPath, TableName, OnDelete>
+    UpdateRelations<
+      State,
+      DocumentType,
+      FieldPath,
+      TableName,
+      OnDelete<DocumentType, FieldPath>
+    >
   >
+}
+
+/**
+ * A registered/finalized table definition that exposes only the schema and metadata,
+ * without the builder methods like .index(), .unique(), etc.
+ */
+
+export interface RegisteredServiceDefinition<
+  ZodSchema extends z.ZodTypeAny = z.ZodTypeAny,
+  Intersection extends z.ZodIntersection<
+    z.ZodObject<any>,
+    z.ZodTypeAny
+  > = z.ZodIntersection<z.ZodObject<any>, z.ZodTypeAny>,
+  TableName extends string = string,
+  DocumentType extends ConvexValidatorFromZod<ZodSchema> = ConvexValidatorFromZod<ZodSchema>,
+  Indexes extends GenericTableIndexes = {},
+  SearchIndexes extends GenericTableSearchIndexes = {},
+  VectorIndexes extends GenericTableVectorIndexes = {},
+  State extends BuilderState<DocumentType> = BuilderState<DocumentType>
+> {
+  readonly tableName: TableName
+  readonly validator: DocumentType
+  readonly schema: Intersection
+
+  // Expose type helpers for working with this table
+  readonly $types: {
+    // Document type without system fields
+    Document: z.infer<ZodSchema>
+    // Document type with system fields including _id
+    DocumentWithSystemFields: Expand<
+      z.infer<ZodSchema> & SystemFieldsWithId<TableName>
+    >
+    // All available field paths including system fields
+    FieldPaths: ExtractFieldPathsWithSystemFields<DocumentType, TableName>
+    // Field paths without system fields (for inserts/updates)
+    InsertFieldPaths: ExtractFieldPathsWithoutSystemFields<DocumentType>
+    // The table's ID type
+    Id: GenericId<TableName>
+  }
+
+  // Expose configuration metadata (read-only)
+  readonly $config: {
+    indexes: Indexes
+    searchIndexes: SearchIndexes
+    vectorIndexes: VectorIndexes
+    state: State
+  }
 }
