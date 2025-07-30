@@ -14,6 +14,9 @@ import {
   type VectorIndex,
   type GetAllVIdPaths,
   type SystemFieldsWithId,
+  GenericRegisteredServiceDefinition,
+  CreateWithoutSystemFields,
+  CreateArgsWithoutDefaults,
 } from './service.types'
 import {
   GenericQueryCtx,
@@ -21,17 +24,20 @@ import {
   type TableNamesInDataModel,
   type Expand,
 } from 'convex/server'
-import { GenericValidator, VObject } from 'convex/values'
+import { VObject } from 'convex/values'
 
 export class ConvexService<
   ZodSchema extends z.ZodTypeAny,
-  DocumentType extends ConvexValidatorFromZod<ZodSchema> = ConvexValidatorFromZod<ZodSchema>
+  DocumentType extends ConvexValidatorFromZod<ZodSchema> = ConvexValidatorFromZod<ZodSchema>,
+  State extends BuilderState<DocumentType> = BuilderState<DocumentType>,
+  Args extends CreateWithoutSystemFields<DocumentType> = CreateWithoutSystemFields<DocumentType>
 > {
   private indexes: Index<DocumentType>[] = []
   private searchIndexes: SearchIndex<DocumentType>[] = []
   private vectorIndexes: VectorIndex<DocumentType>[] = []
   private _schema: ZodSchema
-  private _state: BuilderState
+  private _state: State
+  private _args: CreateWithoutSystemFields<DocumentType>
   validator: DocumentType
   schema: z.ZodIntersection<z.ZodObject<any>, z.ZodTypeAny> = z.intersection(
     z.object({}),
@@ -41,18 +47,28 @@ export class ConvexService<
 
   constructor(zodSchema: ZodSchema) {
     this.validator = zodToConvex(zodSchema) as DocumentType
+    this._args = this
+      .validator as unknown as CreateWithoutSystemFields<DocumentType>
     this._schema = zodSchema
     this._state = {
       defaults: {},
       uniques: [],
       validate: {},
       relations: {},
-    } as BuilderState
+    } as unknown as State
   }
 
   name(tableName: string): this {
     this.tableName = tableName
 
+    this.validator = {
+      ...this.validator,
+      fields: {
+        ...(this.validator as any).fields,
+        _id: zid(tableName),
+        _creationTime: z.number(),
+      },
+    } as DocumentType
     // Method 1: If your schema is always a ZodObject
     this.schema = z.intersection(
       z.object({
@@ -63,17 +79,6 @@ export class ConvexService<
     )
 
     return this
-  }
-
-  private indexIfNotExists<
-    IndexName extends string,
-    FirstFieldPath extends ExtractFieldPathsWithConvexSystemFields<DocumentType>,
-    RestFieldPaths extends ExtractFieldPathsWithConvexSystemFields<DocumentType>[]
-  >(name: IndexName, fields: [FirstFieldPath, ...RestFieldPaths]): void {
-    if (this.indexes.find((index) => index.indexDescriptor === name)) {
-      return
-    }
-    this.index(name, fields)
   }
 
   index<
@@ -247,7 +252,7 @@ export class ConvexService<
   ): this {
     if (args.length === 1) {
       // Single field: unique('field') - INDIVIDUAL field uniqueness
-      this.indexIfNotExists(`by_${args[0]}`, [
+      this.index(`by_${args[0]}`, [
         args[0] as ExtractFieldPathsWithConvexSystemFields<DocumentType>,
       ])
       this._state = {
@@ -268,7 +273,7 @@ export class ConvexService<
       for (const unique of newUniques) {
         indexName += `${unique.fields[0]} `
       }
-      this.indexIfNotExists(
+      this.index(
         indexName,
         args as [
           ExtractFieldPathsWithConvexSystemFields<DocumentType>,
@@ -348,7 +353,7 @@ export class ConvexService<
       table,
       onDelete,
     }
-    this.indexIfNotExists(`by_${field}`, [
+    this.index(`by_${field}`, [
       field as ExtractFieldPathsWithConvexSystemFields<DocumentType>,
     ])
     return this
@@ -388,6 +393,133 @@ export class ConvexService<
    */
   protected self(): this {
     return this
+  }
+
+  private hasDefaultForPath(
+    defaults: Record<string, any>,
+    path: string
+  ): boolean {
+    return path in defaults
+  }
+
+  // Helper function to remove fields with defaults from nested validator structure
+  private makeDefaultedFieldsOptional(
+    validator: any,
+    defaults: Record<string, any>,
+    currentPath: string = ''
+  ): any {
+    console.log('=== makeDefaultedFieldsOptional START ===')
+    console.log('validator:', validator)
+    console.log('defaults:', defaults)
+    console.log('currentPath:', currentPath)
+
+    // If validator is null/undefined, return it as-is
+    if (!validator) {
+      console.log('Validator is null/undefined, returning as-is')
+      return validator
+    }
+
+    // If validator is not an object, return it as-is
+    if (typeof validator !== 'object') {
+      console.log('Validator is not an object, returning as-is')
+      return validator
+    }
+
+    // If no defaults are set, return the validator unchanged
+    if (!defaults || Object.keys(defaults).length === 0) {
+      console.log('No defaults set, returning validator unchanged')
+      return validator
+    }
+
+    // Handle VObject validators (kind === 'object')
+    if (validator.kind === 'object' && validator.fields) {
+      console.log(
+        'Processing object validator with fields:',
+        Object.keys(validator.fields)
+      )
+      const newFields: Record<string, any> = {}
+
+      for (const [fieldName, fieldValidator] of Object.entries(
+        validator.fields
+      )) {
+        const fullPath = currentPath ? `${currentPath}.${fieldName}` : fieldName
+        console.log(`Processing field: ${fieldName}, fullPath: ${fullPath}`)
+
+        // Check if this exact path has a default
+        if (this.hasDefaultForPath(defaults, fullPath)) {
+          console.log(`Making field ${fullPath} optional - has default value`)
+
+          // Make this field optional by changing its isOptional property
+          const optionalFieldValidator = {
+            ...(fieldValidator as any),
+            isOptional: 'optional',
+          }
+          newFields[fieldName] = optionalFieldValidator
+        } else {
+          // If it's a nested object, recursively process it
+          const fieldValidatorObj = fieldValidator as any
+          if (
+            fieldValidatorObj &&
+            fieldValidatorObj.kind === 'object' &&
+            fieldValidatorObj.fields
+          ) {
+            console.log(`Processing nested object at ${fullPath}`)
+            const processedField = this.makeDefaultedFieldsOptional(
+              fieldValidator,
+              defaults,
+              fullPath
+            )
+            newFields[fieldName] = processedField
+          } else {
+            // Regular field without default, keep as-is
+            console.log(`Keeping field ${fieldName} as-is`)
+            newFields[fieldName] = fieldValidator
+          }
+        }
+      }
+
+      console.log('New fields keys:', Object.keys(newFields))
+
+      // Create the new validator object
+      const result = {
+        ...validator,
+        fields: newFields,
+      }
+
+      console.log('Returning object validator with updated optionality')
+      return result
+    }
+
+    // For non-object validators, return as-is
+    console.log('Non-object validator, returning as-is')
+    return validator
+  }
+  register(): GenericRegisteredServiceDefinition {
+    let argsWithoutDefaults = this._args
+    if (this.tableName === 'users') {
+      argsWithoutDefaults = this.makeDefaultedFieldsOptional(
+        this._args,
+        this._state.defaults
+      )
+      console.log('argsWithoutDefaults', argsWithoutDefaults)
+      console.log('this._args', this._args)
+      console.log('this.validator', this.validator)
+    }
+    // console.log('argsWithoutDefaults', argsWithoutDefaults)
+    const registeredService: GenericRegisteredServiceDefinition = {
+      tableName: this.tableName,
+      schema: this.schema,
+      validator: this.validator,
+      $config: {
+        indexes: this.indexes,
+        searchIndexes: this.searchIndexes,
+        vectorIndexes: this.vectorIndexes,
+        state: this._state,
+      },
+      $args: this._args,
+      $argsWithoutDefaults: argsWithoutDefaults,
+    }
+    return registeredService
   }
 }
 

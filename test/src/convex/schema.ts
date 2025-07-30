@@ -37,7 +37,6 @@ export const UserService = defineService(
   .unique('username')
   .unique('email')
   .relation('profileId', 'profiles', 'cascade')
-  .index('by_email', ['email'])
   .index('by_age', ['age'])
   .index('by_active_age', ['isActive', 'age'])
   .searchIndex('by_name_username', {
@@ -64,9 +63,7 @@ export const PostService = defineService(
   .unique('slug')
   .relation('authorId', 'users', 'cascade')
   .relation('categoryId', 'categories', 'restrict')
-  //.relation('tags', 'tags', 'cascade') not typesafe for now
-  .index('by_author', ['authorId'])
-  .index('by_category', ['categoryId'])
+  .relation('tags', 'tags', 'cascade')
   .index('by_published_views', ['published', 'views'])
   .searchIndex('by_title_content', {
     searchField: 'title',
@@ -95,7 +92,6 @@ export const CategoryService = defineService(
   .name('categories')
   .unique('name')
   .relation('parentId', 'categories', 'cascade')
-  .index('by_parent', ['parentId'])
   .index('by_sort_order', ['sortOrder'])
   .default('sortOrder', 0)
 
@@ -114,9 +110,6 @@ export const CommentService = defineService(
   .relation('postId', 'posts', 'cascade')
   .relation('authorId', 'users', 'cascade')
   .relation('parentId', 'comments', 'cascade')
-  .index('by_post', ['postId'])
-  .index('by_author', ['authorId'])
-  .index('by_parent', ['parentId'])
   .index('by_post_approved', ['postId', 'approved'])
   .default('approved', false)
   .default('likes', 0)
@@ -134,14 +127,17 @@ export const TagService = defineService(
   .index('by_usage_count', ['usage_count'])
   .default('usage_count', 0)
 
-export const ServiceSchema = defineServiceSchema({
-  profiles: ProfileService,
-  users: UserService,
-  posts: PostService,
-  categories: CategoryService,
-  comments: CommentService,
-  tags: TagService,
-})
+const schema = {
+  profiles: ProfileService.register(),
+  users: UserService.register(),
+  posts: PostService.register(),
+  categories: CategoryService.register(),
+  comments: CommentService.register(),
+  tags: TagService.register(),
+}
+export const ServiceSchema = defineServiceSchema(schema)
+
+export const { profiles, users, posts, categories, comments, tags } = schema
 
 export default defineSchema({
   profiles: ProfileService,

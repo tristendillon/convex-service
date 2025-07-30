@@ -1,14 +1,12 @@
-import { type DefineSchemaOptions } from 'convex/server'
-import type { ServiceSchemaDefinitionInterface } from './schema.types'
-import type { ConvexServiceInterface } from './service.types'
-import type { GenericSchema } from 'convex/server'
+// schema.ts - Updated implementation with services property
 
-export class ServiceSchemaDefinition<
-  Schema extends GenericSchema,
-  StrictTableTypes extends boolean
-> {
+import type {
+  GenericServiceSchema,
+  ServiceSchemaDefinitionInterface,
+} from './schema.types'
+
+export class ServiceSchemaDefinition<Schema extends GenericServiceSchema> {
   public tables: Schema
-  public strictTableNameTypes!: StrictTableTypes
 
   /**
    * @internal
@@ -18,11 +16,11 @@ export class ServiceSchemaDefinition<
   }
 }
 
-export const defineServiceSchema = <Schema extends GenericSchema>(
+export const defineServiceSchema = <Schema extends GenericServiceSchema>(
   schema: Schema
 ) => {
   for (const [tableName, definition] of Object.entries(schema)) {
-    const service = definition as unknown as ConvexServiceInterface
+    const service = definition
     if (!service.tableName) {
       throw new Error(
         `Service name is not defined. Please define the service name with the .name builder!`

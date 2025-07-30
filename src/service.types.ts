@@ -55,7 +55,6 @@ export type ConvexValidatorFromZod<ZodSchema extends z.ZodTypeAny> = ReturnType<
 
 type ValueOrFunction<T> = T | (() => T)
 
-// Helper type to extract the document type from a ConvexValidatorFromZod
 type ExtractDocumentType<T extends GenericValidator> = T extends Validator<
   infer DocType,
   any,
@@ -64,7 +63,6 @@ type ExtractDocumentType<T extends GenericValidator> = T extends Validator<
   ? DocType
   : never
 
-// Helper type to get field type from document type
 type GetFieldType<
   DocType,
   FieldPath extends string | number | symbol
@@ -74,9 +72,9 @@ type GetFieldType<
     : FieldPath extends `${infer First}.${infer Rest}`
     ? First extends keyof DocType
       ? GetFieldType<DocType[First], Rest>
-      : never
-    : never
-  : never
+      : unknown
+    : unknown
+  : unknown
 
 type ReplacePeriodWithUnderscore<T extends string> =
   T extends `${infer Before}.${infer After}`
@@ -95,13 +93,19 @@ type JoinFieldPathsWithUnderscores<T extends readonly string[]> =
       : never
     : ''
 
-// Improved ValueOrFunctionFromValidator using document type extraction
 export type ValueOrFunctionFromValidator<
   ValidatorType extends GenericValidator,
   FieldPath extends ExtractFieldPathsWithConvexSystemFields<ValidatorType>
 > = FieldPath extends keyof SystemFields
-  ? never // Don't allow defaults on system fields
-  : ValueOrFunction<GetFieldType<ExtractDocumentType<ValidatorType>, FieldPath>>
+  ? never
+  : GetFieldType<
+      ExtractDocumentType<ValidatorType>,
+      FieldPath
+    > extends infer FieldType
+  ? FieldType extends never
+    ? unknown
+    : ValueOrFunction<FieldType>
+  : ValueOrFunction<unknown>
 
 export type SystemFieldsWithId<TableName extends string> = SystemFields & {
   _id: GenericId<TableName>
@@ -585,12 +589,58 @@ export interface ConvexServiceInterface<
       OnDelete<DocumentType, FieldPath>
     >
   >
+
+  register(): RegisteredServiceDefinition<
+    ZodSchema,
+    Intersection,
+    TableName,
+    DocumentType,
+    Indexes,
+    SearchIndexes,
+    VectorIndexes,
+    State
+  >
 }
+
+export type GenericRegisteredServiceDefinition = RegisteredServiceDefinition<
+  any,
+  any,
+  any,
+  any,
+  any,
+  any,
+  any,
+  any
+>
 
 /**
  * A registered/finalized table definition that exposes only the schema and metadata,
  * without the builder methods like .index(), .unique(), etc.
  */
+
+export type CreateWithoutSystemFields<DocumentType extends GenericValidator> =
+  DocumentType extends VObject<any, infer Fields, any, any>
+    ? Omit<Fields, keyof SystemFields>
+    : never
+
+export type CreateArgsWithoutDefaults<
+  DocumentType extends GenericValidator,
+  Args extends CreateWithoutSystemFields<DocumentType>,
+  State extends BuilderState<DocumentType>
+> = Args extends VObject<any, infer Fields, any, any>
+  ? VObject<
+      any,
+      {
+        [K in keyof Fields as K extends string
+          ? K extends keyof State['defaults']
+            ? never
+            : K
+          : never]: Fields[K]
+      },
+      any,
+      any
+    >
+  : Args
 
 export interface RegisteredServiceDefinition<
   ZodSchema extends z.ZodTypeAny = z.ZodTypeAny,
@@ -603,29 +653,20 @@ export interface RegisteredServiceDefinition<
   Indexes extends GenericTableIndexes = {},
   SearchIndexes extends GenericTableSearchIndexes = {},
   VectorIndexes extends GenericTableVectorIndexes = {},
-  State extends BuilderState<DocumentType> = BuilderState<DocumentType>
+  State extends BuilderState<DocumentType> = BuilderState<DocumentType>,
+  Args extends CreateWithoutSystemFields<DocumentType> = CreateWithoutSystemFields<DocumentType>
 > {
   readonly tableName: TableName
   readonly validator: DocumentType
   readonly schema: Intersection
 
-  // Expose type helpers for working with this table
-  readonly $types: {
-    // Document type without system fields
-    Document: z.infer<ZodSchema>
-    // Document type with system fields including _id
-    DocumentWithSystemFields: Expand<
-      z.infer<ZodSchema> & SystemFieldsWithId<TableName>
-    >
-    // All available field paths including system fields
-    FieldPaths: ExtractFieldPathsWithSystemFields<DocumentType, TableName>
-    // Field paths without system fields (for inserts/updates)
-    InsertFieldPaths: ExtractFieldPathsWithoutSystemFields<DocumentType>
-    // The table's ID type
-    Id: GenericId<TableName>
-  }
-
   // Expose configuration metadata (read-only)
+  readonly $args: Args
+  readonly $argsWithoutDefaults: CreateArgsWithoutDefaults<
+    DocumentType,
+    Args,
+    State
+  >
   readonly $config: {
     indexes: Indexes
     searchIndexes: SearchIndexes
