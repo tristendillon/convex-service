@@ -5,8 +5,6 @@ describe('User Service API Tests', () => {
   it('should have correct args', () => {
     const defaultsArgs = users.$argsWithoutDefaults
     const args = users.$args
-    console.log('defaultsArgs', defaultsArgs)
-    console.log('args', args)
     expect(defaultsArgs.username).toBeDefined()
     expect(args.name).toBeDefined()
     expect(args.email).toBeDefined()
@@ -80,11 +78,6 @@ describe('User Service API Tests', () => {
 
   it('should have correct schema field types', () => {
     const validator = users.validator
-    if (validator.kind !== 'object') {
-      throw new Error(
-        `Expected documentType to be of type 'object', but got '${validator.kind}'`
-      )
-    }
     const fields = validator.fields
 
     expect(fields.username.type).toBe('string')

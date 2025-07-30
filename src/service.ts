@@ -144,77 +144,12 @@ export class ConvexService<
     return this
   }
 
-  // private createDefaultValidator<
-  //   FieldPath extends ExtractFieldPathsWithoutSystemFields<DocumentType>
-  // >(
-  //   field: FieldPath,
-  //   value: ValueOrFunctionFromValidator<DocumentType, FieldPath>
-  // ): ValidatorsRecord<DocumentType>['withoutSystemFieldsOrDefaults'] {
-  //   const newValidator = {} as Record<string, any>
-
-  //   // Parse the field path to handle nested objects
-  //   const fieldParts = (field as string).split('.')
-  //   const rootField = fieldParts[0]
-  //   const remainingPath = fieldParts.slice(1).join('.')
-
-  //   // Get the keys as strings, not as validator objects
-  //   for (const key of Object.keys(
-  //     this.validators.withoutSystemFieldsOrDefaults
-  //   ) as Array<string>) {
-  //     // Get the actual validator object for this key
-  //     const validator = this.validators.withoutSystemFieldsOrDefaults as Record<
-  //       string,
-  //       any
-  //     >
-  //     const validatorForKey = validator[key]
-
-  //     // If this is an object validator and we're targeting a nested field within it
-  //     if (
-  //       validatorForKey &&
-  //       validatorForKey.kind === 'object' &&
-  //       key === rootField &&
-  //       remainingPath
-  //     ) {
-  //       // Recursively call for the nested path
-  //       const nestedValidator = this.createDefaultValidator(
-  //         remainingPath as FieldPath,
-  //         value
-  //       )
-  //       newValidator[key] = {
-  //         ...validatorForKey,
-  //         fields: nestedValidator,
-  //       } as unknown as GenericValidator
-  //     }
-  //     // If this is an object validator but not the target field
-  //     else if (validatorForKey.kind === 'object' && key !== rootField) {
-  //       // Keep the object validator as-is
-  //       newValidator[key] = validatorForKey
-  //     }
-  //     // If this is the exact field we want to exclude (leaf level)
-  //     else if (key === field || (key === rootField && !remainingPath)) {
-  //       // Skip this field (exclude it from the new validator)
-  //       continue
-  //     }
-  //     // For all other fields, keep them
-  //     else {
-  //       newValidator[key] = validatorForKey
-  //     }
-  //   }
-
-  //   return newValidator
-  // }
-
   // Default method with proper typing
   default<
     FieldPath extends ExtractFieldPathsWithoutSystemFields<DocumentType>,
     DefaultValue extends ValueOrFunctionFromValidator<DocumentType, FieldPath>
   >(field: FieldPath, value: DefaultValue): this {
     this._state.defaults[field] = value
-
-    // this.validators.withoutSystemFieldsOrDefaults = this.createDefaultValidator(
-    //   field,
-    //   value
-    // )
     return this
   }
 
@@ -403,104 +338,151 @@ export class ConvexService<
   }
 
   // Helper function to remove fields with defaults from nested validator structure
-  private makeDefaultedFieldsOptional(
-    validator: any,
-    defaults: Record<string, any>,
-    currentPath: string = ''
-  ): any {
-    console.log('=== makeDefaultedFieldsOptional START ===')
-    console.log('validator:', validator)
-    console.log('defaults:', defaults)
-    console.log('currentPath:', currentPath)
+  // private makeFieldsOptional(
+  //   schema: z.ZodTypeAny,
+  //   defaults: Record<string, any>,
+  //   currentPath: string = ''
+  // ): z.ZodTypeAny {
+  //   console.log('=== makeZodFieldsOptional START ===')
+  //   console.log('schema:', schema)
+  //   console.log('schema._def:', schema._def)
+  //   console.log('schema._def.typeName:', schema._def?.typeName)
+  //   console.log('defaults:', defaults)
+  //   console.log('currentPath:', currentPath)
 
-    // If validator is null/undefined, return it as-is
-    if (!validator) {
-      console.log('Validator is null/undefined, returning as-is')
-      return validator
-    }
+  //   // If no defaults are set, return schema unchanged
+  //   if (!defaults || Object.keys(defaults).length === 0) {
+  //     console.log('No defaults set, returning schema unchanged')
+  //     return schema
+  //   }
 
-    // If validator is not an object, return it as-is
-    if (typeof validator !== 'object') {
-      console.log('Validator is not an object, returning as-is')
-      return validator
-    }
+  //   // Check for ZodObject by examining the internal structure
+  //   if (schema._def?.typeName === 'ZodObject' && schema._def.shape) {
+  //     console.log('Found ZodObject by typeName check!')
+  //     console.log(
+  //       'Processing ZodObject with shape keys:',
+  //       Object.keys(schema._def.shape)
+  //     )
 
-    // If no defaults are set, return the validator unchanged
-    if (!defaults || Object.keys(defaults).length === 0) {
-      console.log('No defaults set, returning validator unchanged')
-      return validator
-    }
+  //     const newShape: Record<string, z.ZodTypeAny> = {}
 
-    // Handle VObject validators (kind === 'object')
-    if (validator.kind === 'object' && validator.fields) {
-      console.log(
-        'Processing object validator with fields:',
-        Object.keys(validator.fields)
-      )
-      const newFields: Record<string, any> = {}
+  //     for (const [fieldName, fieldSchema] of Object.entries(
+  //       schema._def.shape
+  //     )) {
+  //       const fullPath = currentPath ? `${currentPath}.${fieldName}` : fieldName
+  //       console.log(`Processing field: ${fieldName}, fullPath: ${fullPath}`)
+  //       console.log(
+  //         `Field schema typeName:`,
+  //         (fieldSchema as any)._def?.typeName
+  //       )
 
-      for (const [fieldName, fieldValidator] of Object.entries(
-        validator.fields
-      )) {
-        const fullPath = currentPath ? `${currentPath}.${fieldName}` : fieldName
-        console.log(`Processing field: ${fieldName}, fullPath: ${fullPath}`)
+  //       // Check if this exact path has a default
+  //       if (this.hasDefaultForPath(defaults, fullPath)) {
+  //         console.log(`Making field ${fullPath} optional - has default value`)
 
-        // Check if this exact path has a default
-        if (this.hasDefaultForPath(defaults, fullPath)) {
-          console.log(`Making field ${fullPath} optional - has default value`)
+  //         // Make this field optional
+  //         newShape[fieldName] = (fieldSchema as z.ZodTypeAny).optional()
+  //       } else {
+  //         // If it's a nested object, recursively process it
+  //         if ((fieldSchema as any)._def?.typeName === 'ZodObject') {
+  //           console.log(`Processing nested object at ${fullPath}`)
+  //           const processedField = this.makeFieldsOptional(
+  //             fieldSchema as z.ZodTypeAny,
+  //             defaults,
+  //             fullPath
+  //           )
+  //           newShape[fieldName] = processedField
+  //         } else {
+  //           // Regular field without default, keep as-is
+  //           console.log(`Keeping field ${fieldName} as-is`)
+  //           newShape[fieldName] = fieldSchema as z.ZodTypeAny
+  //         }
+  //       }
+  //     }
 
-          // Make this field optional by changing its isOptional property
-          const optionalFieldValidator = {
-            ...(fieldValidator as any),
-            isOptional: 'optional',
-          }
-          newFields[fieldName] = optionalFieldValidator
+  //     console.log('New shape keys:', Object.keys(newShape))
+
+  //     // Create new ZodObject with the updated shape
+  //     const result = z.object(newShape)
+  //     console.log('Returning new ZodObject with updated optionality')
+  //     return result
+  //   }
+
+  //   // Check for ZodArray by typeName
+  //   if (schema._def?.typeName === 'ZodArray' && (schema as any).element) {
+  //     console.log('Processing ZodArray by typeName check')
+  //     return z.array(
+  //       this.makeFieldsOptional((schema as any).element, defaults, currentPath)
+  //     )
+  //   }
+
+  //   // Check for ZodUnion by typeName
+  //   if (schema._def?.typeName === 'ZodUnion' && (schema as any).options) {
+  //     console.log('Processing ZodUnion by typeName check')
+  //     const options = (schema as any).options
+  //     return z.union([
+  //       this.makeFieldsOptional(options[0], defaults, currentPath),
+  //       ...options
+  //         .slice(1)
+  //         .map((option: any) =>
+  //           this.makeFieldsOptional(option, defaults, currentPath)
+  //         ),
+  //     ] as any)
+  //   }
+
+  //   // Check for ZodIntersection by typeName
+  //   if (schema._def?.typeName === 'ZodIntersection') {
+  //     console.log('Processing ZodIntersection by typeName check')
+  //     return z.intersection(
+  //       this.makeFieldsOptional(schema._def.left, defaults, currentPath),
+  //       this.makeFieldsOptional(schema._def.right, defaults, currentPath)
+  //     )
+  //   }
+
+  //   // For other schema types, return as-is
+  //   console.log(`Other schema type (${schema._def?.typeName}), returning as-is`)
+  //   return schema
+  // }
+  private makeFieldsOptionalDirect(
+    schema: any,
+    defaults: Record<string, any>
+  ): z.ZodTypeAny {
+    console.log('=== Direct approach ===')
+
+    // If it has a shape property, treat it as a ZodObject
+    if (schema.shape && typeof schema.shape === 'object') {
+      console.log('Found shape property, processing as ZodObject')
+      console.log('Shape keys:', Object.keys(schema.shape))
+
+      const newShape: Record<string, z.ZodTypeAny> = {}
+
+      for (const [fieldName, fieldSchema] of Object.entries(schema.shape)) {
+        console.log(`Processing field: ${fieldName}`)
+
+        // Check if this field has a default
+        if (fieldName in defaults) {
+          console.log(`Making field ${fieldName} optional - has default value`)
+          newShape[fieldName] = (fieldSchema as z.ZodTypeAny).optional()
         } else {
-          // If it's a nested object, recursively process it
-          const fieldValidatorObj = fieldValidator as any
-          if (
-            fieldValidatorObj &&
-            fieldValidatorObj.kind === 'object' &&
-            fieldValidatorObj.fields
-          ) {
-            console.log(`Processing nested object at ${fullPath}`)
-            const processedField = this.makeDefaultedFieldsOptional(
-              fieldValidator,
-              defaults,
-              fullPath
-            )
-            newFields[fieldName] = processedField
-          } else {
-            // Regular field without default, keep as-is
-            console.log(`Keeping field ${fieldName} as-is`)
-            newFields[fieldName] = fieldValidator
-          }
+          console.log(`Keeping field ${fieldName} as-is`)
+          newShape[fieldName] = fieldSchema as z.ZodTypeAny
         }
       }
 
-      console.log('New fields keys:', Object.keys(newFields))
-
-      // Create the new validator object
-      const result = {
-        ...validator,
-        fields: newFields,
-      }
-
-      console.log('Returning object validator with updated optionality')
-      return result
+      console.log('Creating new ZodObject with shape:', Object.keys(newShape))
+      return z.object(newShape)
     }
 
-    // For non-object validators, return as-is
-    console.log('Non-object validator, returning as-is')
-    return validator
+    console.log('No shape found, returning schema as-is')
+    return schema
   }
+
   register(): GenericRegisteredServiceDefinition {
     let argsWithoutDefaults = this._args
     if (this.tableName === 'users') {
-      argsWithoutDefaults = this.makeDefaultedFieldsOptional(
-        this._args,
-        this._state.defaults
-      )
+      argsWithoutDefaults = zodToConvex(
+        this.makeFieldsOptionalDirect(this._schema, this._state.defaults)
+      ) as unknown as CreateWithoutSystemFields<DocumentType>
       console.log('argsWithoutDefaults', argsWithoutDefaults)
       console.log('this._args', this._args)
       console.log('this.validator', this.validator)
