@@ -3,9 +3,8 @@ import { users } from '../convex/schema'
 
 describe('User Service API Tests', () => {
   it('should have correct args', () => {
-    const defaultsArgs = users.$argsWithoutDefaults
     const args = users.$args
-    expect(defaultsArgs.username).toBeDefined()
+    expect(args.username).toBeDefined()
     expect(args.name).toBeDefined()
     expect(args.email).toBeDefined()
     expect(args.age).toBeDefined()

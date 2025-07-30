@@ -623,24 +623,18 @@ export type CreateWithoutSystemFields<DocumentType extends GenericValidator> =
     ? Omit<Fields, keyof SystemFields>
     : never
 
-export type CreateArgsWithoutDefaults<
-  DocumentType extends GenericValidator,
-  Args extends CreateWithoutSystemFields<DocumentType>,
-  State extends BuilderState<DocumentType>
-> = Args extends VObject<any, infer Fields, any, any>
-  ? VObject<
-      any,
-      {
-        [K in keyof Fields as K extends string
-          ? K extends keyof State['defaults']
-            ? never
-            : K
-          : never]: Fields[K]
-      },
-      any,
-      any
-    >
-  : Args
+export type MakeZodFieldsOptional<
+  Schema extends z.ZodTypeAny,
+  Defaults extends Record<string, any>
+> = Schema extends z.ZodObject<infer Shape>
+  ? z.ZodObject<{
+      [K in keyof Shape]: K extends keyof Defaults
+        ? undefined extends Defaults[K]
+          ? Shape[K]
+          : z.ZodOptional<Shape[K]>
+        : Shape[K]
+    }>
+  : Schema
 
 export interface RegisteredServiceDefinition<
   ZodSchema extends z.ZodTypeAny = z.ZodTypeAny,
@@ -662,10 +656,8 @@ export interface RegisteredServiceDefinition<
 
   // Expose configuration metadata (read-only)
   readonly $args: Args
-  readonly $argsWithoutDefaults: CreateArgsWithoutDefaults<
-    DocumentType,
-    Args,
-    State
+  readonly $argsWithoutDefaults: ConvexValidatorFromZod<
+    MakeZodFieldsOptional<ZodSchema, State['defaults']>
   >
   readonly $config: {
     indexes: Indexes

@@ -1,11 +1,16 @@
-import { v } from 'convex/values'
 import { internalMutation, internalQuery } from './_generated/server'
 import { users } from './schema'
 
 export const myFunction = internalMutation({
   args: users.$argsWithoutDefaults,
   handler: async (ctx, args) => {
-    return true
+    const newUser = {
+      ...args,
+      age: args.age ?? users.$config.state.defaults.age,
+      isActive: args.isActive ?? users.$config.state.defaults.isActive,
+    }
+    const userId = await ctx.db.insert(users.tableName, newUser)
+    return await ctx.db.get(userId)
   },
 })
 

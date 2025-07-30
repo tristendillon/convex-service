@@ -16,7 +16,6 @@ import {
   type SystemFieldsWithId,
   GenericRegisteredServiceDefinition,
   CreateWithoutSystemFields,
-  CreateArgsWithoutDefaults,
 } from './service.types'
 import {
   GenericQueryCtx,
@@ -61,15 +60,6 @@ export class ConvexService<
   name(tableName: string): this {
     this.tableName = tableName
 
-    this.validator = {
-      ...this.validator,
-      fields: {
-        ...(this.validator as any).fields,
-        _id: zid(tableName),
-        _creationTime: z.number(),
-      },
-    } as DocumentType
-    // Method 1: If your schema is always a ZodObject
     this.schema = z.intersection(
       z.object({
         _id: zid(tableName),
@@ -337,157 +327,31 @@ export class ConvexService<
     return path in defaults
   }
 
-  // Helper function to remove fields with defaults from nested validator structure
-  // private makeFieldsOptional(
-  //   schema: z.ZodTypeAny,
-  //   defaults: Record<string, any>,
-  //   currentPath: string = ''
-  // ): z.ZodTypeAny {
-  //   console.log('=== makeZodFieldsOptional START ===')
-  //   console.log('schema:', schema)
-  //   console.log('schema._def:', schema._def)
-  //   console.log('schema._def.typeName:', schema._def?.typeName)
-  //   console.log('defaults:', defaults)
-  //   console.log('currentPath:', currentPath)
-
-  //   // If no defaults are set, return schema unchanged
-  //   if (!defaults || Object.keys(defaults).length === 0) {
-  //     console.log('No defaults set, returning schema unchanged')
-  //     return schema
-  //   }
-
-  //   // Check for ZodObject by examining the internal structure
-  //   if (schema._def?.typeName === 'ZodObject' && schema._def.shape) {
-  //     console.log('Found ZodObject by typeName check!')
-  //     console.log(
-  //       'Processing ZodObject with shape keys:',
-  //       Object.keys(schema._def.shape)
-  //     )
-
-  //     const newShape: Record<string, z.ZodTypeAny> = {}
-
-  //     for (const [fieldName, fieldSchema] of Object.entries(
-  //       schema._def.shape
-  //     )) {
-  //       const fullPath = currentPath ? `${currentPath}.${fieldName}` : fieldName
-  //       console.log(`Processing field: ${fieldName}, fullPath: ${fullPath}`)
-  //       console.log(
-  //         `Field schema typeName:`,
-  //         (fieldSchema as any)._def?.typeName
-  //       )
-
-  //       // Check if this exact path has a default
-  //       if (this.hasDefaultForPath(defaults, fullPath)) {
-  //         console.log(`Making field ${fullPath} optional - has default value`)
-
-  //         // Make this field optional
-  //         newShape[fieldName] = (fieldSchema as z.ZodTypeAny).optional()
-  //       } else {
-  //         // If it's a nested object, recursively process it
-  //         if ((fieldSchema as any)._def?.typeName === 'ZodObject') {
-  //           console.log(`Processing nested object at ${fullPath}`)
-  //           const processedField = this.makeFieldsOptional(
-  //             fieldSchema as z.ZodTypeAny,
-  //             defaults,
-  //             fullPath
-  //           )
-  //           newShape[fieldName] = processedField
-  //         } else {
-  //           // Regular field without default, keep as-is
-  //           console.log(`Keeping field ${fieldName} as-is`)
-  //           newShape[fieldName] = fieldSchema as z.ZodTypeAny
-  //         }
-  //       }
-  //     }
-
-  //     console.log('New shape keys:', Object.keys(newShape))
-
-  //     // Create new ZodObject with the updated shape
-  //     const result = z.object(newShape)
-  //     console.log('Returning new ZodObject with updated optionality')
-  //     return result
-  //   }
-
-  //   // Check for ZodArray by typeName
-  //   if (schema._def?.typeName === 'ZodArray' && (schema as any).element) {
-  //     console.log('Processing ZodArray by typeName check')
-  //     return z.array(
-  //       this.makeFieldsOptional((schema as any).element, defaults, currentPath)
-  //     )
-  //   }
-
-  //   // Check for ZodUnion by typeName
-  //   if (schema._def?.typeName === 'ZodUnion' && (schema as any).options) {
-  //     console.log('Processing ZodUnion by typeName check')
-  //     const options = (schema as any).options
-  //     return z.union([
-  //       this.makeFieldsOptional(options[0], defaults, currentPath),
-  //       ...options
-  //         .slice(1)
-  //         .map((option: any) =>
-  //           this.makeFieldsOptional(option, defaults, currentPath)
-  //         ),
-  //     ] as any)
-  //   }
-
-  //   // Check for ZodIntersection by typeName
-  //   if (schema._def?.typeName === 'ZodIntersection') {
-  //     console.log('Processing ZodIntersection by typeName check')
-  //     return z.intersection(
-  //       this.makeFieldsOptional(schema._def.left, defaults, currentPath),
-  //       this.makeFieldsOptional(schema._def.right, defaults, currentPath)
-  //     )
-  //   }
-
-  //   // For other schema types, return as-is
-  //   console.log(`Other schema type (${schema._def?.typeName}), returning as-is`)
-  //   return schema
-  // }
   private makeFieldsOptionalDirect(
     schema: any,
     defaults: Record<string, any>
   ): z.ZodTypeAny {
-    console.log('=== Direct approach ===')
-
-    // If it has a shape property, treat it as a ZodObject
     if (schema.shape && typeof schema.shape === 'object') {
-      console.log('Found shape property, processing as ZodObject')
-      console.log('Shape keys:', Object.keys(schema.shape))
-
       const newShape: Record<string, z.ZodTypeAny> = {}
 
       for (const [fieldName, fieldSchema] of Object.entries(schema.shape)) {
-        console.log(`Processing field: ${fieldName}`)
-
-        // Check if this field has a default
         if (fieldName in defaults) {
-          console.log(`Making field ${fieldName} optional - has default value`)
           newShape[fieldName] = (fieldSchema as z.ZodTypeAny).optional()
         } else {
-          console.log(`Keeping field ${fieldName} as-is`)
           newShape[fieldName] = fieldSchema as z.ZodTypeAny
         }
       }
 
-      console.log('Creating new ZodObject with shape:', Object.keys(newShape))
       return z.object(newShape)
     }
 
-    console.log('No shape found, returning schema as-is')
     return schema
   }
 
   register(): GenericRegisteredServiceDefinition {
-    let argsWithoutDefaults = this._args
-    if (this.tableName === 'users') {
-      argsWithoutDefaults = zodToConvex(
-        this.makeFieldsOptionalDirect(this._schema, this._state.defaults)
-      ) as unknown as CreateWithoutSystemFields<DocumentType>
-      console.log('argsWithoutDefaults', argsWithoutDefaults)
-      console.log('this._args', this._args)
-      console.log('this.validator', this.validator)
-    }
-    // console.log('argsWithoutDefaults', argsWithoutDefaults)
+    const argsWithoutDefaults = zodToConvex(
+      this.makeFieldsOptionalDirect(this._schema, this._state.defaults)
+    )
     const registeredService: GenericRegisteredServiceDefinition = {
       tableName: this.tableName,
       schema: this.schema,

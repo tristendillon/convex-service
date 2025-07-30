@@ -3,8 +3,7 @@ import { defineService, defineServiceSchema } from 'convex-sql'
 import { defineSchema } from 'convex/server'
 import z from 'zod'
 
-// Profile Service - Basic service with minimal fields
-export const ProfileService = defineService(
+const ProfileService = defineService(
   z.object({
     name: z.string(),
     age: z.number(),
@@ -15,9 +14,7 @@ export const ProfileService = defineService(
   .name('profiles')
   .index('by_name', ['name'])
   .searchIndex('by_bio', { searchField: 'bio' })
-
-// User Service - Complex service with relationships and validation
-export const UserService = defineService(
+const UserService = defineService(
   z.object({
     username: z
       .string()
@@ -44,9 +41,7 @@ export const UserService = defineService(
     filterFields: ['isActive'],
   })
   .validate()
-
-// Post Service - Service with vector search and multiple indexes
-export const PostService = defineService(
+const PostService = defineService(
   z.object({
     title: z.string(),
     content: z.string(),
@@ -76,8 +71,7 @@ export const PostService = defineService(
   })
   .validate()
 
-// Category Service - Simple service with hierarchical structure
-export const CategoryService = defineService(
+const CategoryService = defineService(
   z.object({
     name: z.string(),
     description: z.string().optional(),
@@ -95,8 +89,7 @@ export const CategoryService = defineService(
   .index('by_sort_order', ['sortOrder'])
   .default('sortOrder', 0)
 
-// Comment Service - Service with composite unique constraints
-export const CommentService = defineService(
+const CommentService = defineService(
   z.object({
     postId: zid('posts'),
     authorId: zid('users'),
@@ -114,8 +107,7 @@ export const CommentService = defineService(
   .default('approved', false)
   .default('likes', 0)
 
-// Tag Service - Simple service for many-to-many relationships
-export const TagService = defineService(
+const TagService = defineService(
   z.object({
     name: z.string(),
     color: z.string().optional(),
