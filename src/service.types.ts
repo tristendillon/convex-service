@@ -31,18 +31,7 @@ import type {
   UniqueField,
   ValueOrFunctionFromValidator,
 } from './shared-types'
-import type {
-  UpdateDefault,
-  UpdateIndex,
-  UpdateName,
-  UpdateRelation,
-  UpdateSearchIndex,
-  UpdateUnique,
-  UpdateUniqueComposite,
-  UpdateValidateFunction,
-  UpdateValidateSchema,
-  UpdateVectorIndex,
-} from './service-updaters.types'
+import type { Zid } from 'convex-helpers/server/zod'
 
 export type DefaultsState<
   DocumentType extends GenericValidator = GenericValidator
@@ -59,7 +48,7 @@ export type UniquesState<
 
 export type ValidateState<ZodSchema extends z.ZodTypeAny = z.ZodTypeAny> =
   | FunctionValidateConstraint<ZodSchema>
-  | ZodSchema
+  | z.ZodTypeAny
 
 export type RelationsState<
   DocumentType extends GenericValidator = GenericValidator
@@ -68,8 +57,8 @@ export type RelationsState<
 }
 
 export interface BuilderState<
-  DocumentType extends GenericValidator = GenericValidator,
-  ZodSchema extends z.ZodTypeAny = z.ZodTypeAny
+  ZodSchema extends z.ZodTypeAny = z.ZodTypeAny,
+  DocumentType extends ConvexValidatorFromZod<ZodSchema> = ConvexValidatorFromZod<ZodSchema>
 > {
   defaults: DefaultsState<DocumentType>
   uniques: UniquesState<DocumentType>
@@ -88,10 +77,7 @@ export interface ConvexServiceInterface<
   Indexes extends GenericTableIndexes = {},
   SearchIndexes extends GenericTableSearchIndexes = {},
   VectorIndexes extends GenericTableVectorIndexes = {},
-  State extends BuilderState<DocumentType, ZodSchema> = BuilderState<
-    DocumentType,
-    ZodSchema
-  >
+  State extends BuilderState<ZodSchema> = BuilderState<ZodSchema>
 > extends TableDefinition<DocumentType, Indexes, SearchIndexes, VectorIndexes> {
   tableName: TableName
   schema: Intersection
@@ -107,7 +93,13 @@ export interface ConvexServiceInterface<
     tableName: NewTableName
   ): ConvexServiceInterface<
     ZodSchema,
-    UpdateName<ZodSchema, NewTableName>,
+    z.ZodIntersection<
+      z.ZodObject<{
+        _id: Zid<NewTableName>
+        _creationTime: z.ZodNumber
+      }>,
+      ZodSchema
+    >,
     NewTableName,
     DocumentType,
     Indexes,
@@ -128,12 +120,9 @@ export interface ConvexServiceInterface<
     Intersection,
     TableName,
     DocumentType,
-    UpdateIndex<
-      ZodSchema,
-      Indexes,
-      DocumentType,
-      IndexName,
-      [FirstFieldPath, ...RestFieldPaths]
+    Expand<
+      Indexes &
+        Record<IndexName, [FirstFieldPath, ...RestFieldPaths, '_creationTime']>
     >,
     SearchIndexes,
     VectorIndexes,
@@ -153,13 +142,12 @@ export interface ConvexServiceInterface<
     TableName,
     DocumentType,
     Indexes,
-    UpdateSearchIndex<
-      ZodSchema,
-      SearchIndexes,
-      DocumentType,
-      IndexName,
-      SearchField,
-      FilterFields
+    Expand<
+      SearchIndexes &
+        Record<
+          IndexName,
+          { searchField: SearchField; filterFields: FilterFields }
+        >
     >,
     VectorIndexes,
     State
@@ -179,13 +167,12 @@ export interface ConvexServiceInterface<
     DocumentType,
     Indexes,
     SearchIndexes,
-    UpdateVectorIndex<
-      ZodSchema,
-      VectorIndexes,
-      DocumentType,
-      IndexName,
-      VectorField,
-      FilterFields
+    Expand<
+      VectorIndexes &
+        Record<
+          IndexName,
+          { vectorField: VectorField; filterFields: FilterFields }
+        >
     >,
     State
   >
@@ -210,7 +197,7 @@ export interface ConvexServiceInterface<
     Indexes,
     SearchIndexes,
     VectorIndexes,
-    UpdateDefault<ZodSchema, State, DocumentType, FieldPath, DefaultValue>
+    Expand<State & { defaults: { [K in FieldPath]: DefaultValue } }>
   >
 
   /**
@@ -224,16 +211,20 @@ export interface ConvexServiceInterface<
     Intersection,
     TableName,
     DocumentType,
-    UpdateIndex<
-      ZodSchema,
-      Indexes,
-      DocumentType,
-      `by_${ReplacePeriodWithUnderscore<FieldPath>}`,
-      [FieldPath, '_creationTime']
+    Expand<
+      Indexes &
+        Record<
+          `by_${ReplacePeriodWithUnderscore<FieldPath>}`,
+          [FieldPath, '_creationTime']
+        >
     >,
     SearchIndexes,
     VectorIndexes,
-    UpdateUnique<ZodSchema, State, DocumentType, FieldPath>
+    Expand<
+      Omit<State, 'uniques'> & {
+        uniques: [...State['uniques'], { fields: FieldPath }]
+      }
+    >
   >
 
   /**
@@ -254,21 +245,22 @@ export interface ConvexServiceInterface<
     Intersection,
     TableName,
     DocumentType,
-    UpdateIndex<
-      ZodSchema,
-      Indexes,
-      DocumentType,
-      `by_${JoinFieldPathsWithUnderscores<FieldPaths>}`,
-      [...FieldPaths, '_creationTime']
+    Expand<
+      Indexes &
+        Record<
+          `by_${JoinFieldPathsWithUnderscores<FieldPaths>}`,
+          [...FieldPaths, '_creationTime']
+        >
     >,
     SearchIndexes,
     VectorIndexes,
-    UpdateUniqueComposite<
-      ZodSchema,
-      State,
-      DocumentType,
-      FieldPaths,
-      OnConflict
+    Expand<
+      Omit<State, 'uniques'> & {
+        uniques: [
+          ...State['uniques'],
+          { fields: FieldPaths; onConflict: OnConflict }
+        ]
+      }
     >
   >
 
@@ -277,7 +269,7 @@ export interface ConvexServiceInterface<
    * @param schema - Zod schema for validation
    * @returns A ConvexService instance with the validation schema set
    */
-  validate<Schema extends z.ZodTypeAny = z.ZodTypeAny>(
+  validate<Schema extends z.ZodTypeAny | undefined = z.ZodTypeAny | undefined>(
     schema?: Schema
   ): ConvexServiceInterface<
     ZodSchema,
@@ -287,7 +279,7 @@ export interface ConvexServiceInterface<
     Indexes,
     SearchIndexes,
     VectorIndexes,
-    UpdateValidateSchema<ZodSchema, State, DocumentType, Schema>
+    Expand<Omit<State, 'validate'> & { validate: Schema }>
   >
 
   /**
@@ -313,7 +305,7 @@ export interface ConvexServiceInterface<
     Indexes,
     SearchIndexes,
     VectorIndexes,
-    UpdateValidateFunction<ZodSchema, State, DocumentType, ValidationFn>
+    Expand<Omit<State, 'validate'> & { validate: ValidationFn }>
   >
 
   /**
@@ -325,11 +317,12 @@ export interface ConvexServiceInterface<
    */
   relation<
     FieldPath extends GetAllVIdPaths<DocumentType>,
-    TableName extends TableNamesInDataModel<GenericDataModel>
+    TableName extends TableNamesInDataModel<GenericDataModel>,
+    OnDeleteAction extends OnDelete<DocumentType, FieldPath>
   >(
     field: FieldPath,
     table: TableName,
-    onDelete: OnDelete<DocumentType, FieldPath>
+    onDelete: OnDeleteAction
   ): ConvexServiceInterface<
     ZodSchema,
     Intersection,
@@ -338,7 +331,17 @@ export interface ConvexServiceInterface<
     Indexes,
     SearchIndexes,
     VectorIndexes,
-    UpdateRelation<ZodSchema, State, DocumentType, FieldPath, TableName>
+    State extends BuilderState<ZodSchema>
+      ? Omit<State, 'relations'> & {
+          relations: State['relations'] & {
+            [K in FieldPath]: {
+              path: FieldPath
+              table: TableName
+              onDelete: OnDeleteAction
+            }
+          }
+        }
+      : never
   >
 
   /**
@@ -402,7 +405,7 @@ export interface RegisteredServiceDefinition<
   Indexes extends GenericTableIndexes = {},
   SearchIndexes extends GenericTableSearchIndexes = {},
   VectorIndexes extends GenericTableVectorIndexes = {},
-  State extends BuilderState<DocumentType> = BuilderState<DocumentType>,
+  State extends BuilderState<ZodSchema> = BuilderState<ZodSchema>,
   Args extends CreateWithoutSystemFields<DocumentType> = CreateWithoutSystemFields<DocumentType>
 > {
   readonly tableName: TableName

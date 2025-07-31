@@ -10,17 +10,16 @@ describe('User Service API Tests', () => {
     const config = users.$config
 
     expect(Object.keys(config.indexes)).toHaveLength(5)
-    expect(config.indexes).toContain('by_username')
-    expect(config.indexes).toContain('by_email')
-    expect(config.indexes).toContain('by_profileId')
-    expect(config.indexes).toContain('by_email')
-    expect(config.indexes).toContain('by_age')
-    expect(config.indexes).toContain('by_active_age')
+    expect(config.indexes).toHaveProperty('by_active_age')
+    expect(config.indexes).toHaveProperty('by_age')
+    expect(config.indexes).toHaveProperty('by_email_name')
+    expect(config.indexes).toHaveProperty('by_profileId')
+    expect(config.indexes).toHaveProperty('by_username')
   })
 
   it('should have correct unique constraints configuration', () => {
     const config = users.$config
-
+    const state = users.$config.state
     expect(config.state.uniques).toHaveLength(2)
     expect(config.state.uniques[0].fields).toBe('username')
     expect(config.state.uniques[1].fields).toBe('email')

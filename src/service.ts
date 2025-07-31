@@ -41,7 +41,7 @@ type VectorIndex<DocumentType extends GenericValidator> = {
 export class ConvexService<
   ZodSchema extends z.ZodTypeAny,
   DocumentType extends ConvexValidatorFromZod<ZodSchema> = ConvexValidatorFromZod<ZodSchema>,
-  State extends BuilderState<DocumentType> = BuilderState<DocumentType>
+  State extends BuilderState<ZodSchema> = BuilderState<ZodSchema>
 > {
   private indexes: Record<string, Index<DocumentType>> = {}
   private searchIndexes: Record<string, SearchIndex<DocumentType>> = {}
@@ -193,9 +193,7 @@ export class ConvexService<
   // Use the service's schema for the validate function.
   validate(fn: FunctionValidateConstraint<ZodSchema>): this
   validate<Schema extends z.ZodTypeAny>(schema: Schema): this
-  validate<Schema extends z.ZodTypeAny>(
-    schemaOrFn?: ValidateConstraint<Schema>
-  ): this {
+  validate(schemaOrFn?: ValidateConstraint): this {
     if (schemaOrFn === undefined) {
       this._state.validate = this._schema
       return this

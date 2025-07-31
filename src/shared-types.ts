@@ -222,7 +222,7 @@ export type FunctionValidateConstraint<
 export type ValidateConstraint<ZodSchema extends z.ZodTypeAny = z.ZodTypeAny> =
   | undefined
   | FunctionValidateConstraint<ZodSchema>
-  | ZodSchema
+  | z.ZodTypeAny
 
 export type RelationConstraint<
   DocumentType extends GenericValidator = GenericValidator,
