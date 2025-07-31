@@ -7,21 +7,26 @@ import type {
   GenericRegisteredServiceDefinition,
   CreateWithoutSystemFields,
 } from './service.types'
-import type { GenericDataModel, TableNamesInDataModel } from 'convex/server'
-import type { GenericValidator } from 'convex/values'
+import {
+  GenericQueryCtx,
+  GenericDataModel,
+  type TableNamesInDataModel,
+  type Expand,
+} from 'convex/server'
+import { GenericValidator } from 'convex/values'
 import type {
   ExtractFieldPathsWithConvexSystemFields,
   ConvexValidatorFromZod,
   ExtractFieldPathsWithoutSystemFields,
   ValueOrFunctionFromValidator,
+  GetAllVIdPaths,
+  ExportedTableDefinition,
   UniqueField,
   CompositeUniqueFields,
   BaseOnConflict,
   FunctionValidateConstraint,
   ValidateConstraint,
-  GetAllVIdPaths,
   BaseOnDelete,
-  ExportedTableDefinition,
 } from './shared-types'
 
 type Index<DocumentType extends GenericValidator> =

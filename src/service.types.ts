@@ -28,6 +28,8 @@ import type {
   UniqueConstraint,
   UniqueField,
   ValueOrFunctionFromValidator,
+  UniquesState,
+  ValidateConstraint,
 } from './shared-types'
 import type { Zid } from 'convex-helpers/server/zod'
 
@@ -56,14 +58,7 @@ export type DefaultsState<
   >
 }>
 
-export type UniquesState<
-  DocumentType extends GenericValidator = GenericValidator
-> = Array<UniqueConstraint<DocumentType>>
 
-export type ValidateState<ZodSchema extends z.ZodTypeAny = z.ZodTypeAny> =
-  | undefined
-  | FunctionValidateConstraint<ZodSchema>
-  | z.ZodTypeAny
 
 export type RelationsState<
   DocumentType extends GenericValidator = GenericValidator
@@ -80,7 +75,6 @@ export interface BuilderState<
   validate: ValidateState<ZodSchema>
   relations: RelationsState<DocumentType>
 }
-
 export interface ConvexServiceInterface<
   ZodSchema extends z.ZodTypeAny = z.ZodTypeAny,
   Intersection extends z.ZodIntersection<
@@ -222,7 +216,7 @@ export interface ConvexServiceInterface<
    * Builder function to define a unique constraint on a single field.
    * @param field - The field that should be unique
    */
-  unique<FieldPath extends ExtractFieldPathsWithoutSystemFields<DocumentType>>(
+  unique<FieldPath extends UniqueField<DocumentType>>(
     field: FieldPath
   ): ConvexServiceInterface<
     ZodSchema,
@@ -253,10 +247,10 @@ export interface ConvexServiceInterface<
    * @returns A ConvexService instance with the unique constraint set
    */
   unique<
-    FieldPaths extends ExtractFieldPathsWithoutSystemFields<DocumentType>[],
+    FieldPaths extends CompositeUniqueFields<DocumentType>,
     OnConflict extends BaseOnConflict = 'fail'
   >(
-    fields: FieldPaths,
+    fieldPaths: FieldPaths,
     onConflict: OnConflict
   ): ConvexServiceInterface<
     ZodSchema,
@@ -267,7 +261,7 @@ export interface ConvexServiceInterface<
       Indexes &
         Record<
           `by_${JoinFieldPathsWithUnderscores<FieldPaths>}`,
-          [FieldPaths, '_creationTime']
+          [...FieldPaths, '_creationTime']
         >
     >,
     SearchIndexes,
@@ -355,17 +349,13 @@ export interface ConvexServiceInterface<
     >,
     SearchIndexes,
     VectorIndexes,
-    State extends BuilderState<DocumentType, ZodSchema>
-      ? Omit<State, 'relations'> & {
-          relations: State['relations'] & {
-            [K in FieldPath]: {
-              path: FieldPath
-              table: TableName
-              onDelete: OnDeleteAction
-            }
-          }
+    Expand<
+      Omit<State, 'relations'> & {
+        relations: State['relations'] & {
+          [K in FieldPath]: RelationConfig<DocumentType, K>
         }
-      : never
+      }
+    >
   >
 
   /**
