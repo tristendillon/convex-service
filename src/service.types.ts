@@ -1,4 +1,4 @@
-import {
+import type {
   Expand,
   GenericDataModel,
   GenericTableIndexes,
@@ -9,21 +9,11 @@ import {
   TableDefinition,
   TableNamesInDataModel,
   VectorIndexConfig,
-  type GenericQueryCtx,
+  GenericQueryCtx,
 } from 'convex/server'
-import { ZodSchema, z } from 'zod'
-import { zodToConvex, type Zid } from 'convex-helpers/server/zod'
-import {
-  GenericId,
-  GenericValidator,
-  VArray,
-  VId,
-  VObject,
-  VUnion,
-  Validator,
-  type ValidatorJSON,
-} from 'convex/values'
-import {
+import type { z } from 'zod'
+import type { GenericValidator, VObject, ValidatorJSON } from 'convex/values'
+import type {
   BaseOnConflict,
   CompositeUniqueFields,
   ConvexValidatorFromZod,
@@ -41,7 +31,7 @@ import {
   UniqueField,
   ValueOrFunctionFromValidator,
 } from './shared-types'
-import {
+import type {
   UpdateDefault,
   UpdateIndex,
   UpdateName,
