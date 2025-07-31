@@ -18,7 +18,6 @@ import {
   GenericValidator,
   VArray,
   VId,
-  VLiteral,
   VObject,
   VUnion,
   Validator,
@@ -88,7 +87,6 @@ type ReplacePeriodWithUnderscore<T extends string> =
     ? `${Before}_${ReplacePeriodWithUnderscore<After>}`
     : T
 
-// Helper type to join field paths with underscores
 type JoinFieldPathsWithUnderscores<T extends readonly string[]> =
   T extends readonly [infer First, ...infer Rest]
     ? First extends string
@@ -197,7 +195,6 @@ export type GetAllVIdPaths<
     : never
   : never
 
-// Helper type for incrementing depth counter (more efficient than tuple length)
 type Add1<N extends number> = N extends 0
   ? 1
   : N extends 1
@@ -227,7 +224,6 @@ type DefaultsState<DocumentType extends GenericValidator = GenericValidator> =
     >
   }>
 
-// Updated to support composite uniqueness with objects containing fields arrays
 type UniqueConstraint<
   DocumentType extends GenericValidator = GenericValidator
 > = {
@@ -240,7 +236,6 @@ type UniqueConstraint<
 type UniquesState<DocumentType extends GenericValidator = GenericValidator> =
   Array<UniqueConstraint<DocumentType>>
 
-// Updated ValidateState to support both Zod schema and validation function
 type ValidateState<ZodSchema extends z.ZodTypeAny = z.ZodTypeAny> = Partial<{
   schema: ZodSchema
   validationFn: (
@@ -258,11 +253,9 @@ type RelationConfig<
 > = {
   path: FieldPath
   table: TableNamesInDataModel<GenericDataModel>
-  // cant precompute onDelete since it will give an infinitely deep type
   onDelete: BaseOnDelete | 'setOptional'
 }
 
-// FIX 3: Use a mapped type that defers the complex computation
 type RelationsState<DocumentType extends GenericValidator = GenericValidator> =
   {
     [K in GetAllVIdPaths<DocumentType>]?: RelationConfig<DocumentType, K>
@@ -277,7 +270,6 @@ export interface BuilderState<
   relations: RelationsState<DocumentType>
 }
 
-// FIX 4: Use conditional types to defer complex type resolution
 type UpdateRelations<
   State extends BuilderState<any>,
   DocumentType extends GenericValidator,
@@ -296,7 +288,6 @@ type UpdateRelations<
     }
   : never
 
-// Updated interface with improved relation method
 export interface ConvexServiceInterface<
   ZodSchema extends z.ZodTypeAny = z.ZodTypeAny,
   Intersection extends z.ZodIntersection<
@@ -591,6 +582,10 @@ export interface ConvexServiceInterface<
     >
   >
 
+  /**
+   * Register the service with the Convex framework.
+   * @returns A RegisteredServiceDefinition instance with the service metadata
+   */
   register(): RegisteredServiceDefinition<
     ZodSchema,
     Intersection,

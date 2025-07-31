@@ -100,7 +100,7 @@ export class ConvexService<
   >(name: IndexName, fields: [FirstFieldPath, ...RestFieldPaths]): this {
     // Convex index names must be <=64 chars, start with a letter, and only contain letters, digits, underscores.
     // See: https://docs.convex.dev/database/indexes#naming
-    let fixedIndexName = this.fixIndexName(name)
+    const fixedIndexName = this.fixIndexName(name)
 
     if (this.indexes[fixedIndexName]) {
       throw new Error(`Index ${fixedIndexName} already exists`)
@@ -123,11 +123,11 @@ export class ConvexService<
     }
   ): this {
     const fixedIndexName = this.fixIndexName(name)
-    if (this.searchIndexes[name]) {
+    if (this.searchIndexes[fixedIndexName]) {
       throw new Error(`Search index ${name} already exists`)
     }
 
-    this.searchIndexes[name] = {
+    this.searchIndexes[fixedIndexName] = {
       searchField: indexConfig.searchField,
       filterFields: (indexConfig.filterFields ||
         []) as ExtractFieldPathsWithConvexSystemFields<DocumentType>[],
