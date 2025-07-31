@@ -1,11 +1,28 @@
 import { z } from 'zod'
 import { zid, zodToConvex } from 'convex-helpers/server/zod'
 
-import type {
+// Import all the types from your interface file
+import {
   ConvexServiceInterface,
   BuilderState,
+  ConvexValidatorFromZod,
+  ExtractFieldPathsWithConvexSystemFields,
+  ExtractFieldPathsWithoutSystemFields,
+  ValueOrFunctionFromValidator,
+  type ExportedIndex,
+  type ExportedSearchIndex,
+  type ExportedVectorIndex,
+  type GetAllVIdPaths,
+  type SystemFieldsWithId,
   GenericRegisteredServiceDefinition,
   CreateWithoutSystemFields,
+  ExportedTableDefinition,
+  UniqueField,
+  CompositeUniqueFields,
+  BaseOnConflict,
+  FunctionValidateConstraint,
+  ValidateState,
+  BaseOnDelete,
 } from './service.types'
 import {
   GenericQueryCtx,
@@ -14,20 +31,6 @@ import {
   type Expand,
 } from 'convex/server'
 import { GenericValidator } from 'convex/values'
-import type {
-  ExtractFieldPathsWithConvexSystemFields,
-  ConvexValidatorFromZod,
-  ExtractFieldPathsWithoutSystemFields,
-  ValueOrFunctionFromValidator,
-  GetAllVIdPaths,
-  ExportedTableDefinition,
-  UniqueField,
-  CompositeUniqueFields,
-  BaseOnConflict,
-  FunctionValidateConstraint,
-  ValidateConstraint,
-  BaseOnDelete,
-} from './shared-types'
 
 type Index<DocumentType extends GenericValidator> =
   ExtractFieldPathsWithConvexSystemFields<DocumentType>[]
@@ -69,7 +72,7 @@ export class ConvexService<
     this._state = {
       defaults: {},
       uniques: [],
-      validate: undefined,
+      validate: {},
       relations: {},
     } as unknown as State
   }
@@ -103,7 +106,8 @@ export class ConvexService<
   >(name: IndexName, fields: [FirstFieldPath, ...RestFieldPaths]): this {
     // Convex index names must be <=64 chars, start with a letter, and only contain letters, digits, underscores.
     // See: https://docs.convex.dev/database/indexes#naming
-    const fixedIndexName = this.fixIndexName(name)
+    let fixedIndexName = this.fixIndexName(name)
+
     if (this.indexes[fixedIndexName]) {
       throw new Error(`Index ${fixedIndexName} already exists`)
     }
@@ -125,11 +129,11 @@ export class ConvexService<
     }
   ): this {
     const fixedIndexName = this.fixIndexName(name)
-    if (this.searchIndexes[fixedIndexName]) {
+    if (this.searchIndexes[name]) {
       throw new Error(`Search index ${name} already exists`)
     }
 
-    this.searchIndexes[fixedIndexName] = {
+    this.searchIndexes[name] = {
       searchField: indexConfig.searchField,
       filterFields: (indexConfig.filterFields ||
         []) as ExtractFieldPathsWithConvexSystemFields<DocumentType>[],
@@ -163,6 +167,7 @@ export class ConvexService<
     return this
   }
 
+  // Default method with proper typing
   default<
     FieldPath extends ExtractFieldPathsWithoutSystemFields<DocumentType>,
     DefaultValue extends ValueOrFunctionFromValidator<DocumentType, FieldPath>
@@ -198,7 +203,7 @@ export class ConvexService<
   // Use the service's schema for the validate function.
   validate(fn: FunctionValidateConstraint<ZodSchema>): this
   validate<Schema extends z.ZodTypeAny>(schema: Schema): this
-  validate(schemaOrFn?: ValidateConstraint): this {
+  validate(schemaOrFn?: ValidateState): this {
     if (schemaOrFn === undefined) {
       this._state.validate = this._schema
       return this
@@ -207,6 +212,7 @@ export class ConvexService<
     return this
   }
 
+  // Relation method with proper typing
   relation<
     FieldPath extends GetAllVIdPaths<DocumentType>,
     TableName extends TableNamesInDataModel<GenericDataModel>
@@ -253,6 +259,8 @@ export class ConvexService<
       ),
       documentType: (this.validator as any).json,
     }
+
+    console.log(tableDefinition)
     return tableDefinition
   }
 
@@ -317,10 +325,12 @@ export class ConvexService<
       args: this._args,
       argsWithoutDefaults: argsWithoutDefaults,
     }
+    console.log('REGISTER', registeredService)
     return registeredService
   }
 }
 
+// Factory function to create a new ConvexService with proper typing
 export function defineService<ZodSchema extends z.ZodTypeAny>(
   zodSchema: ZodSchema
 ): ConvexServiceInterface<ZodSchema> {

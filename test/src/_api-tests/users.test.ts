@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest'
 import { users } from '../convex/schema'
-import { users } from '../convex/schema'
 
 describe('User Service API Tests', () => {
   it('should have correct table name', () => {
@@ -9,7 +8,6 @@ describe('User Service API Tests', () => {
 
   it('should have correct indexes configuration', () => {
     const config = users.$config
-
     expect(Object.keys(config.indexes)).toHaveLength(6)
     expect(config.indexes).toHaveProperty('by_username')
     expect(config.indexes).toHaveProperty('by_email')
@@ -26,6 +24,7 @@ describe('User Service API Tests', () => {
     expect(config.state.uniques[0].fields).toBe('username')
     expect(config.state.uniques[1].fields).toBe('email')
     expect(config.state.uniques[2].fields).toEqual(['email', 'username'])
+    expect(config.state.uniques[2].onConflict).toEqual('replace')
   })
 
   it('should have correct default values configuration', () => {
