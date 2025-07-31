@@ -1,15 +1,15 @@
 import { z } from 'zod'
 import { zid, zodToConvex } from 'convex-helpers/server/zod'
 
-import {
+import type {
   ConvexServiceInterface,
   BuilderState,
   GenericRegisteredServiceDefinition,
   CreateWithoutSystemFields,
 } from './service.types'
-import { GenericDataModel, type TableNamesInDataModel } from 'convex/server'
-import { GenericValidator } from 'convex/values'
-import {
+import type { GenericDataModel, TableNamesInDataModel } from 'convex/server'
+import type { GenericValidator } from 'convex/values'
+import type {
   ExtractFieldPathsWithConvexSystemFields,
   ConvexValidatorFromZod,
   ExtractFieldPathsWithoutSystemFields,

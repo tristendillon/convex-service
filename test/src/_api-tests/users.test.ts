@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { UserService, users } from '../convex/schema'
+import { users } from '../convex/schema'
 
 describe('User Service API Tests', () => {
   it('should have correct table name', () => {
