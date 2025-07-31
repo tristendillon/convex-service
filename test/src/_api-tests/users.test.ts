@@ -20,11 +20,12 @@ describe('User Service API Tests', () => {
   })
 
   it('should have correct unique constraints configuration', () => {
-    const state = users.$config.state
+    const config = users.$config
 
-    expect(state.uniques).toHaveLength(3)
-    expect(state.uniques[0].fields).toBe('username')
-    expect(state.uniques[1].fields).toBe('email')
+    expect(config.state.uniques).toHaveLength(3)
+    expect(config.state.uniques[0].fields).toBe('username')
+    expect(config.state.uniques[1].fields).toBe('email')
+    expect(config.state.uniques[2].fields).toEqual(['email', 'username'])
   })
 
   it('should have correct default values configuration', () => {
