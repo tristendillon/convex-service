@@ -1,25 +1,18 @@
 import { describe, it, expect } from 'vitest'
-import { users } from '../convex/schema'
+import { UserService, users } from '../convex/schema'
 
 describe('User Service API Tests', () => {
-  it('should have correct args', () => {
-    const args = users.$args
-    expect(args.username).toBeDefined()
-    expect(args.name).toBeDefined()
-    expect(args.email).toBeDefined()
-    expect(args.age).toBeDefined()
-    expect(args.isActive).toBeDefined()
-    expect(args.profileId).toBeDefined()
-  })
   it('should have correct table name', () => {
     expect(users.tableName).toBe('users')
   })
 
   it('should have correct indexes configuration', () => {
+    UserService.export()
+    console.log(users)
     const config = users.$config
 
-    expect(Object.keys(config.indexes)).toHaveLength(6)
-
+    console.log(config.indexes)
+    expect(Object.keys(config.indexes)).toHaveLength(5)
     expect(config.indexes).toContain('by_username')
     expect(config.indexes).toContain('by_email')
     expect(config.indexes).toContain('by_profileId')

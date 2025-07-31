@@ -25,14 +25,21 @@ import {
   type ValidatorJSON,
 } from 'convex/values'
 
-export type Index<
+export type ExportedTableDefinition = {
+  indexes: ExportedIndex[]
+  searchIndexes: ExportedSearchIndex[]
+  vectorIndexes: ExportedVectorIndex[]
+  documentType: ValidatorJSON
+}
+
+export type ExportedIndex<
   DocumentType extends Validator<any, any, any> = Validator<any, any, any>
 > = {
   indexDescriptor: string
   fields: ExtractFieldPathsWithConvexSystemFields<DocumentType>[]
 }
 
-export type SearchIndex<
+export type ExportedSearchIndex<
   DocumentType extends Validator<any, any, any> = Validator<any, any, any>
 > = {
   indexDescriptor: string
@@ -40,7 +47,7 @@ export type SearchIndex<
   filterFields: ExtractFieldPathsWithConvexSystemFields<DocumentType>[]
 }
 
-export type VectorIndex<
+export type ExportedVectorIndex<
   DocumentType extends Validator<any, any, any> = Validator<any, any, any>
 > = {
   indexDescriptor: string
@@ -311,13 +318,7 @@ export interface ConvexServiceInterface<
    * This is called internally by the Convex framework.
    * @internal
    */
-  export(): {
-    indexes: Index[]
-    searchIndexes: SearchIndex[]
-    vectorIndexes: VectorIndex[]
-    documentType: ValidatorJSON
-    state: State
-  }
+  export(): ExportedTableDefinition
 
   name<NewTableName extends string>(
     tableName: NewTableName
@@ -651,12 +652,13 @@ export interface RegisteredServiceDefinition<
   Args extends CreateWithoutSystemFields<DocumentType> = CreateWithoutSystemFields<DocumentType>
 > {
   readonly tableName: TableName
+  readonly $validatorJSON: ValidatorJSON
   readonly validator: DocumentType
   readonly schema: Intersection
 
   // Expose configuration metadata (read-only)
-  readonly $args: Args
-  readonly $argsWithoutDefaults: ConvexValidatorFromZod<
+  readonly args: Args
+  readonly argsWithoutDefaults: ConvexValidatorFromZod<
     MakeZodFieldsOptional<ZodSchema, State['defaults']>
   >
   readonly $config: {

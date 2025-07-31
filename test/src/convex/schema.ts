@@ -14,7 +14,9 @@ const ProfileService = defineService(
   .name('profiles')
   .index('by_name', ['name'])
   .searchIndex('by_bio', { searchField: 'bio' })
-const UserService = defineService(
+  .validate()
+
+export const UserService = defineService(
   z.object({
     username: z
       .string()
@@ -41,6 +43,7 @@ const UserService = defineService(
     filterFields: ['isActive'],
   })
   .validate()
+
 const PostService = defineService(
   z.object({
     title: z.string(),
@@ -88,6 +91,7 @@ const CategoryService = defineService(
   .relation('parentId', 'categories', 'cascade')
   .index('by_sort_order', ['sortOrder'])
   .default('sortOrder', 0)
+  .validate()
 
 const CommentService = defineService(
   z.object({
@@ -106,6 +110,7 @@ const CommentService = defineService(
   .index('by_post_approved', ['postId', 'approved'])
   .default('approved', false)
   .default('likes', 0)
+  .validate()
 
 const TagService = defineService(
   z.object({
@@ -118,6 +123,7 @@ const TagService = defineService(
   .unique('name')
   .index('by_usage_count', ['usage_count'])
   .default('usage_count', 0)
+  .validate()
 
 const schema = {
   profiles: ProfileService.register(),

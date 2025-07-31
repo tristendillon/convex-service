@@ -2,7 +2,7 @@ import { internalMutation, internalQuery } from './_generated/server'
 import { users } from './schema'
 
 export const myFunction = internalMutation({
-  args: users.$argsWithoutDefaults,
+  args: users.argsWithoutDefaults,
   handler: async (ctx, args) => {
     const newUser = {
       ...args,

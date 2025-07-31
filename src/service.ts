@@ -9,13 +9,14 @@ import {
   ExtractFieldPathsWithConvexSystemFields,
   ExtractFieldPathsWithoutSystemFields,
   ValueOrFunctionFromValidator,
-  type Index,
-  type SearchIndex,
-  type VectorIndex,
+  type ExportedIndex,
+  type ExportedSearchIndex,
+  type ExportedVectorIndex,
   type GetAllVIdPaths,
   type SystemFieldsWithId,
   GenericRegisteredServiceDefinition,
   CreateWithoutSystemFields,
+  ExportedTableDefinition,
 } from './service.types'
 import {
   GenericQueryCtx,
@@ -23,17 +24,30 @@ import {
   type TableNamesInDataModel,
   type Expand,
 } from 'convex/server'
-import { VObject } from 'convex/values'
+import { GenericValidator, VObject } from 'convex/values'
+
+type Index<DocumentType extends GenericValidator> =
+  ExtractFieldPathsWithConvexSystemFields<DocumentType>[]
+
+type SearchIndex<DocumentType extends GenericValidator> = {
+  searchField: ExtractFieldPathsWithConvexSystemFields<DocumentType>
+  filterFields: ExtractFieldPathsWithConvexSystemFields<DocumentType>[]
+}
+
+type VectorIndex<DocumentType extends GenericValidator> = {
+  vectorField: ExtractFieldPathsWithConvexSystemFields<DocumentType>
+  dimensions: number
+  filterFields: ExtractFieldPathsWithConvexSystemFields<DocumentType>[]
+}
 
 export class ConvexService<
   ZodSchema extends z.ZodTypeAny,
   DocumentType extends ConvexValidatorFromZod<ZodSchema> = ConvexValidatorFromZod<ZodSchema>,
-  State extends BuilderState<DocumentType> = BuilderState<DocumentType>,
-  Args extends CreateWithoutSystemFields<DocumentType> = CreateWithoutSystemFields<DocumentType>
+  State extends BuilderState<DocumentType> = BuilderState<DocumentType>
 > {
-  private indexes: Index<DocumentType>[] = []
-  private searchIndexes: SearchIndex<DocumentType>[] = []
-  private vectorIndexes: VectorIndex<DocumentType>[] = []
+  private indexes: Record<string, Index<DocumentType>> = {}
+  private searchIndexes: Record<string, SearchIndex<DocumentType>> = {}
+  private vectorIndexes: Record<string, VectorIndex<DocumentType>> = {}
   private _schema: ZodSchema
   private _state: State
   private _args: CreateWithoutSystemFields<DocumentType>
@@ -71,6 +85,14 @@ export class ConvexService<
     return this
   }
 
+  private fixIndexName(name: string): string {
+    return name
+      .trim()
+      .replace(/[^a-zA-Z0-9_]/g, '_') // replace invalid chars with underscore
+      .replace(/^([^a-zA-Z])/, '_$1') // ensure starts with a letter by prepending underscore if not
+      .slice(0, 64) // enforce max length
+  }
+
   index<
     IndexName extends string,
     FirstFieldPath extends ExtractFieldPathsWithConvexSystemFields<DocumentType>,
@@ -78,16 +100,13 @@ export class ConvexService<
   >(name: IndexName, fields: [FirstFieldPath, ...RestFieldPaths]): this {
     // Convex index names must be <=64 chars, start with a letter, and only contain letters, digits, underscores.
     // See: https://docs.convex.dev/database/indexes#naming
-    let fixedIndexName = name
-      .trim()
-      .replace(/[^a-zA-Z0-9_]/g, '_') // replace invalid chars with underscore
-      .replace(/^([^a-zA-Z])/, '_$1') // ensure starts with a letter by prepending underscore if not
-      .slice(0, 64) // enforce max length
+    let fixedIndexName = this.fixIndexName(name)
 
-    this.indexes.push({
-      indexDescriptor: fixedIndexName,
-      fields: fields,
-    })
+    if (this.indexes[fixedIndexName]) {
+      throw new Error(`Index ${fixedIndexName} already exists`)
+    }
+
+    this.indexes[fixedIndexName] = fields
 
     return this
   }
@@ -103,12 +122,16 @@ export class ConvexService<
       filterFields?: FilterFields extends never ? undefined : FilterFields[]
     }
   ): this {
-    this.searchIndexes.push({
-      indexDescriptor: name,
+    const fixedIndexName = this.fixIndexName(name)
+    if (this.searchIndexes[name]) {
+      throw new Error(`Search index ${name} already exists`)
+    }
+
+    this.searchIndexes[name] = {
       searchField: indexConfig.searchField,
       filterFields: (indexConfig.filterFields ||
         []) as ExtractFieldPathsWithConvexSystemFields<DocumentType>[],
-    })
+    }
     return this
   }
 
@@ -124,13 +147,17 @@ export class ConvexService<
       filterFields?: FilterFields extends never ? undefined : FilterFields[]
     }
   ): this {
-    this.vectorIndexes.push({
-      indexDescriptor: name,
+    const fixedIndexName = this.fixIndexName(name)
+    if (this.vectorIndexes[fixedIndexName]) {
+      throw new Error(`Vector index ${fixedIndexName} already exists`)
+    }
+
+    this.vectorIndexes[fixedIndexName] = {
       vectorField: indexConfig.vectorField,
       dimensions: indexConfig.dimensions,
       filterFields: (indexConfig.filterFields ||
         []) as ExtractFieldPathsWithConvexSystemFields<DocumentType>[],
-    })
+    }
     return this
   }
 
@@ -290,15 +317,34 @@ export class ConvexService<
    * This is called internally by the Convex framework.
    * @internal
    */
-  export() {
-    return {
-      indexes: this.indexes,
-      searchIndexes: this.searchIndexes,
-      vectorIndexes: this.vectorIndexes,
+  export(): ExportedTableDefinition {
+    const tableDefinition: ExportedTableDefinition = {
+      indexes: Object.entries(this.indexes).map(
+        ([indexDescriptor, fields]) => ({
+          indexDescriptor,
+          fields,
+        })
+      ),
+      searchIndexes: Object.entries(this.searchIndexes).map(
+        ([indexDescriptor, searchIndex]) => ({
+          indexDescriptor,
+          searchField: searchIndex.searchField,
+          filterFields: searchIndex.filterFields,
+        })
+      ),
+      vectorIndexes: Object.entries(this.vectorIndexes).map(
+        ([indexDescriptor, vectorIndex]) => ({
+          indexDescriptor,
+          vectorField: vectorIndex.vectorField,
+          dimensions: vectorIndex.dimensions,
+          filterFields: vectorIndex.filterFields,
+        })
+      ),
       documentType: (this.validator as any).json,
-      // Include the state in the export for framework usage
-      state: this._state,
     }
+
+    console.log(tableDefinition)
+    return tableDefinition
   }
 
   /**
@@ -310,7 +356,10 @@ export class ConvexService<
    * https://github.com/get-convex/convex-js/issues/49
    */
   ' indexes'(): { indexDescriptor: string; fields: string[] }[] {
-    return this.indexes
+    return Object.entries(this.indexes).map(([indexDescriptor, fields]) => ({
+      indexDescriptor,
+      fields,
+    }))
   }
 
   /**
@@ -318,13 +367,6 @@ export class ConvexService<
    */
   protected self(): this {
     return this
-  }
-
-  private hasDefaultForPath(
-    defaults: Record<string, any>,
-    path: string
-  ): boolean {
-    return path in defaults
   }
 
   private makeFieldsOptionalDirect(
@@ -353,18 +395,20 @@ export class ConvexService<
       this.makeFieldsOptionalDirect(this._schema, this._state.defaults)
     )
     const registeredService: GenericRegisteredServiceDefinition = {
-      tableName: this.tableName,
-      schema: this.schema,
-      validator: this.validator,
+      $validatorJSON: (this.validator as any).json,
       $config: {
         indexes: this.indexes,
         searchIndexes: this.searchIndexes,
         vectorIndexes: this.vectorIndexes,
         state: this._state,
       },
-      $args: this._args,
-      $argsWithoutDefaults: argsWithoutDefaults,
+      tableName: this.tableName,
+      schema: this.schema,
+      validator: this.validator,
+      args: this._args,
+      argsWithoutDefaults: argsWithoutDefaults,
     }
+    console.log('REGISTER', registeredService)
     return registeredService
   }
 }
