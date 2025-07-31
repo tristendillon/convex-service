@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { UserService, users } from '../convex/schema'
+import { users } from '../convex/schema'
 
 describe('User Service API Tests', () => {
   it('should have correct table name', () => {
@@ -7,26 +7,24 @@ describe('User Service API Tests', () => {
   })
 
   it('should have correct indexes configuration', () => {
-    UserService.export()
-    console.log(users)
     const config = users.$config
-
-    console.log(config.indexes)
-    expect(Object.keys(config.indexes)).toHaveLength(5)
-    expect(config.indexes).toContain('by_username')
-    expect(config.indexes).toContain('by_email')
-    expect(config.indexes).toContain('by_profileId')
-    expect(config.indexes).toContain('by_email')
-    expect(config.indexes).toContain('by_age')
-    expect(config.indexes).toContain('by_active_age')
+    expect(Object.keys(config.indexes)).toHaveLength(6)
+    expect(config.indexes).toHaveProperty('by_username')
+    expect(config.indexes).toHaveProperty('by_email')
+    expect(config.indexes).toHaveProperty('by_email_username')
+    expect(config.indexes).toHaveProperty('by_profileId')
+    expect(config.indexes).toHaveProperty('by_age')
+    expect(config.indexes).toHaveProperty('by_active_age')
   })
 
   it('should have correct unique constraints configuration', () => {
     const config = users.$config
 
-    expect(config.state.uniques).toHaveLength(2)
+    expect(config.state.uniques).toHaveLength(3)
     expect(config.state.uniques[0].fields).toBe('username')
     expect(config.state.uniques[1].fields).toBe('email')
+    expect(config.state.uniques[2].fields).toEqual(['email', 'username'])
+    expect(config.state.uniques[2].onConflict).toEqual('replace')
   })
 
   it('should have correct default values configuration', () => {
@@ -53,8 +51,7 @@ describe('User Service API Tests', () => {
     const config = users.$config
 
     expect(Object.keys(config.searchIndexes)).toHaveLength(1)
-    expect(config.searchIndexes).toContain('by_name_username')
-    expect(config.searchIndexes).toContain('by_name_username')
+    expect(config.searchIndexes).toHaveProperty('by_name_username')
   })
 
   it('should have no vector indexes', () => {
@@ -65,19 +62,21 @@ describe('User Service API Tests', () => {
   it('should have validation enabled', () => {
     const config = users.$config
     expect(config.state.validate).toBeDefined()
-    expect(config.state.validate.schema).toBeDefined()
   })
 
   it('should have correct schema field types', () => {
-    const validator = users.validator
-    const fields = validator.fields
+    const validator = users.$validatorJSON
+    if (validator.type !== 'object') {
+      throw new Error('Validator is not an object')
+    }
+    const fields = validator.value
 
-    expect(fields.username.type).toBe('string')
-    expect(fields.name.type).toBe('string')
-    expect(fields.email.type).toBe('string')
-    expect(fields.age.type).toBe('number')
-    expect(fields.isActive.type).toBe('boolean')
-    expect(fields.profileId.type).toBe('id')
-    expect(fields.metadata.isOptional).toBe(true)
+    expect(fields.username.fieldType.type).toBe('string')
+    expect(fields.name.fieldType.type).toBe('string')
+    expect(fields.email.fieldType.type).toBe('string')
+    expect(fields.age.fieldType.type).toBe('number')
+    expect(fields.isActive.fieldType.type).toBe('boolean')
+    expect(fields.profileId.fieldType.type).toBe('id')
+    expect(fields.metadata.optional).toBe(true)
   })
 })

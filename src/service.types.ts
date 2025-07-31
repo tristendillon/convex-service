@@ -117,7 +117,6 @@ export type ValueOrFunctionFromValidator<
 export type SystemFieldsWithId<TableName extends string> = SystemFields & {
   _id: GenericId<TableName>
 }
-
 export type GetValidatorAtPath<
   V extends Validator<any, any, any>,
   Path extends string
@@ -140,7 +139,7 @@ export type GetValidatorAtPath<
 export type IsOptionalValidator<V extends Validator<any, any, any>> =
   V extends Validator<any, 'optional', any> ? true : false
 
-export type BaseOnDelete = 'cascade' | 'restrict'
+export type BaseOnDelete = 'cascade' | 'fail'
 
 export type OnDelete<
   DocumentType extends Validator<any, any, any>,
@@ -227,30 +226,44 @@ type DefaultsState<DocumentType extends GenericValidator = GenericValidator> =
     >
   }>
 
+export type UniqueField<
+  DocumentType extends GenericValidator = GenericValidator
+> = ExtractFieldPathsWithoutSystemFields<DocumentType>
+
+export type CompositeUniqueFields<
+  DocumentType extends GenericValidator = GenericValidator
+> = [
+  UniqueField<DocumentType>,
+  UniqueField<DocumentType>,
+  ...UniqueField<DocumentType>[]
+]
+
+export type BaseOnConflict = 'fail' | 'replace'
+
 // Updated to support composite uniqueness with objects containing fields arrays
-type UniqueConstraint<
+export type UniqueConstraint<
   DocumentType extends GenericValidator = GenericValidator
 > = {
-  fields: [
-    ExtractFieldPathsWithoutSystemFields<DocumentType>,
-    ...ExtractFieldPathsWithoutSystemFields<DocumentType>[]
-  ]
+  fields: UniqueField<DocumentType> | CompositeUniqueFields<DocumentType>
+  onConflict: BaseOnConflict
 }
-
 type UniquesState<DocumentType extends GenericValidator = GenericValidator> =
   Array<UniqueConstraint<DocumentType>>
 
-// Updated ValidateState to support both Zod schema and validation function
-type ValidateState<ZodSchema extends z.ZodTypeAny = z.ZodTypeAny> = Partial<{
-  schema: ZodSchema
-  validationFn: (
-    ctx: GenericQueryCtx<GenericDataModel>,
-    document: Expand<
-      z.infer<ZodSchema> &
-        SystemFieldsWithId<TableNamesInDataModel<GenericDataModel>>
-    >
-  ) => Promise<void> | void
-}>
+export type FunctionValidateConstraint<
+  ZodSchema extends z.ZodTypeAny = z.ZodTypeAny
+> = (
+  ctx: GenericQueryCtx<GenericDataModel>,
+  document: Expand<
+    z.infer<ZodSchema> &
+      SystemFieldsWithId<TableNamesInDataModel<GenericDataModel>>
+  >
+) => Promise<void> | void
+
+export type ValidateState<ZodSchema extends z.ZodTypeAny = z.ZodTypeAny> =
+  | undefined
+  | FunctionValidateConstraint<ZodSchema>
+  | z.ZodTypeAny
 
 type RelationConfig<
   DocumentType extends GenericValidator,
@@ -269,34 +282,14 @@ type RelationsState<DocumentType extends GenericValidator = GenericValidator> =
   }
 
 export interface BuilderState<
-  DocumentType extends GenericValidator = GenericValidator
+  DocumentType extends GenericValidator = GenericValidator,
+  ZodSchema extends z.ZodTypeAny = z.ZodTypeAny
 > {
   defaults: DefaultsState<DocumentType>
   uniques: UniquesState<DocumentType>
-  validate: ValidateState
+  validate: ValidateState<ZodSchema>
   relations: RelationsState<DocumentType>
 }
-
-// FIX 4: Use conditional types to defer complex type resolution
-type UpdateRelations<
-  State extends BuilderState<any>,
-  DocumentType extends GenericValidator,
-  FieldPath extends GetAllVIdPaths<DocumentType>,
-  TableName extends TableNamesInDataModel<GenericDataModel>,
-  OnDeleteAction extends OnDelete<DocumentType, FieldPath>
-> = State extends BuilderState<DocumentType>
-  ? Omit<State, 'relations'> & {
-      relations: State['relations'] & {
-        [K in FieldPath]: {
-          path: FieldPath
-          table: TableName
-          onDelete: OnDeleteAction
-        }
-      }
-    }
-  : never
-
-// Updated interface with improved relation method
 export interface ConvexServiceInterface<
   ZodSchema extends z.ZodTypeAny = z.ZodTypeAny,
   Intersection extends z.ZodIntersection<
@@ -308,7 +301,10 @@ export interface ConvexServiceInterface<
   Indexes extends GenericTableIndexes = {},
   SearchIndexes extends GenericTableSearchIndexes = {},
   VectorIndexes extends GenericTableVectorIndexes = {},
-  State extends BuilderState<DocumentType> = BuilderState<DocumentType>
+  State extends BuilderState<DocumentType, ZodSchema> = BuilderState<
+    DocumentType,
+    ZodSchema
+  >
 > extends TableDefinition<DocumentType, Indexes, SearchIndexes, VectorIndexes> {
   tableName: TableName
   schema: Intersection
@@ -442,7 +438,7 @@ export interface ConvexServiceInterface<
    * Builder function to define a unique constraint on a single field.
    * @param field - The field that should be unique
    */
-  unique<FieldPath extends ExtractFieldPathsWithoutSystemFields<DocumentType>>(
+  unique<FieldPath extends UniqueField<DocumentType>>(
     field: FieldPath
   ): ConvexServiceInterface<
     ZodSchema,
@@ -460,7 +456,7 @@ export interface ConvexServiceInterface<
     VectorIndexes,
     Expand<
       Omit<State, 'uniques'> & {
-        uniques: [...State['uniques'], { fields: [FieldPath] }]
+        uniques: [...State['uniques'], { fields: FieldPath }]
       }
     >
   >
@@ -473,13 +469,11 @@ export interface ConvexServiceInterface<
    * @returns A ConvexService instance with the unique constraint set
    */
   unique<
-    FirstFieldPath extends ExtractFieldPathsWithoutSystemFields<DocumentType>,
-    SecondFieldPath extends ExtractFieldPathsWithoutSystemFields<DocumentType>,
-    RestFieldPaths extends ExtractFieldPathsWithoutSystemFields<DocumentType>[]
+    FieldPaths extends CompositeUniqueFields<DocumentType>,
+    OnConflict extends BaseOnConflict = 'fail'
   >(
-    first: FirstFieldPath,
-    second: SecondFieldPath,
-    ...rest: RestFieldPaths
+    fieldPaths: FieldPaths,
+    onConflict: OnConflict
   ): ConvexServiceInterface<
     ZodSchema,
     Intersection,
@@ -488,10 +482,8 @@ export interface ConvexServiceInterface<
     Expand<
       Indexes &
         Record<
-          `by_${JoinFieldPathsWithUnderscores<
-            [FirstFieldPath, SecondFieldPath, ...RestFieldPaths]
-          >}`,
-          [FirstFieldPath, SecondFieldPath, ...RestFieldPaths, '_creationTime']
+          `by_${JoinFieldPathsWithUnderscores<FieldPaths>}`,
+          [...FieldPaths, '_creationTime']
         >
     >,
     SearchIndexes,
@@ -500,11 +492,7 @@ export interface ConvexServiceInterface<
       Omit<State, 'uniques'> & {
         uniques: [
           ...State['uniques'],
-          { fields: [FirstFieldPath] },
-          { fields: [SecondFieldPath] },
-          ...{
-            [I in keyof RestFieldPaths]: { fields: [RestFieldPaths[I]] }
-          }
+          { fields: FieldPaths; onConflict: OnConflict }
         ]
       }
     >
@@ -582,12 +570,12 @@ export interface ConvexServiceInterface<
     >,
     SearchIndexes,
     VectorIndexes,
-    UpdateRelations<
-      State,
-      DocumentType,
-      FieldPath,
-      TableName,
-      OnDelete<DocumentType, FieldPath>
+    Expand<
+      Omit<State, 'relations'> & {
+        relations: State['relations'] & {
+          [K in FieldPath]: RelationConfig<DocumentType, K>
+        }
+      }
     >
   >
 
@@ -648,7 +636,10 @@ export interface RegisteredServiceDefinition<
   Indexes extends GenericTableIndexes = {},
   SearchIndexes extends GenericTableSearchIndexes = {},
   VectorIndexes extends GenericTableVectorIndexes = {},
-  State extends BuilderState<DocumentType> = BuilderState<DocumentType>,
+  State extends BuilderState<DocumentType, ZodSchema> = BuilderState<
+    DocumentType,
+    ZodSchema
+  >,
   Args extends CreateWithoutSystemFields<DocumentType> = CreateWithoutSystemFields<DocumentType>
 > {
   readonly tableName: TableName
