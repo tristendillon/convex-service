@@ -7,10 +7,10 @@
     "predev": "convex dev --until-success && convex dashboard",
     "logs": "convex logs",
     "lint": "tsc -p convex && eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "test": "vitest",
-    "test:once": "vitest run",
-    "test:debug": "vitest --inspect-brk --no-file-parallelism",
-    "test:coverage": "vitest run --coverage --coverage.reporter=text"
+    "test": "rm -rf node_modules/.vite && vitest",
+    "test:once": "rm -rf node_modules/.vite && vitest run",
+    "test:debug": "rm -rf node_modules/.vite && vitest --inspect-brk --no-file-parallelism",
+    "test:coverage": "rm -rf node_modules/.vite && vitest run --coverage --coverage.reporter=text"
   },
   "dependencies": {
     "convex": "^1.23.0",

@@ -34,7 +34,7 @@ export const UserService = defineService(
   .default('age', 18)
   .default('isActive', true)
   .unique('username')
-  .unique('email')
+  .unique(['email', 'name'], 'fail')
   .relation('profileId', 'profiles', 'cascade')
   .index('by_age', ['age'])
   .index('by_active_age', ['isActive', 'age'])
@@ -60,7 +60,7 @@ const PostService = defineService(
   .name('posts')
   .unique('slug')
   .relation('authorId', 'users', 'cascade')
-  .relation('categoryId', 'categories', 'restrict')
+  .relation('categoryId', 'categories', 'fail')
   .relation('tags', 'tags', 'cascade')
   .index('by_published_views', ['published', 'views'])
   .searchIndex('by_title_content', {

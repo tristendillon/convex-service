@@ -1,30 +1,28 @@
 import { z } from 'zod'
 import { zid, zodToConvex } from 'convex-helpers/server/zod'
 
-// Import all the types from your interface file
 import {
   ConvexServiceInterface,
   BuilderState,
-  ConvexValidatorFromZod,
-  ExtractFieldPathsWithConvexSystemFields,
-  ExtractFieldPathsWithoutSystemFields,
-  ValueOrFunctionFromValidator,
-  type ExportedIndex,
-  type ExportedSearchIndex,
-  type ExportedVectorIndex,
-  type GetAllVIdPaths,
-  type SystemFieldsWithId,
   GenericRegisteredServiceDefinition,
   CreateWithoutSystemFields,
-  ExportedTableDefinition,
 } from './service.types'
+import { GenericDataModel, type TableNamesInDataModel } from 'convex/server'
+import { GenericValidator } from 'convex/values'
 import {
-  GenericQueryCtx,
-  GenericDataModel,
-  type TableNamesInDataModel,
-  type Expand,
-} from 'convex/server'
-import { GenericValidator, VObject } from 'convex/values'
+  ExtractFieldPathsWithConvexSystemFields,
+  ConvexValidatorFromZod,
+  ExtractFieldPathsWithoutSystemFields,
+  ValueOrFunctionFromValidator,
+  UniqueField,
+  CompositeUniqueFields,
+  BaseOnConflict,
+  FunctionValidateConstraint,
+  ValidateConstraint,
+  GetAllVIdPaths,
+  BaseOnDelete,
+  ExportedTableDefinition,
+} from './shared-types'
 
 type Index<DocumentType extends GenericValidator> =
   ExtractFieldPathsWithConvexSystemFields<DocumentType>[]
@@ -101,7 +99,6 @@ export class ConvexService<
     // Convex index names must be <=64 chars, start with a letter, and only contain letters, digits, underscores.
     // See: https://docs.convex.dev/database/indexes#naming
     const fixedIndexName = this.fixIndexName(name)
-
     if (this.indexes[fixedIndexName]) {
       throw new Error(`Index ${fixedIndexName} already exists`)
     }
@@ -161,7 +158,6 @@ export class ConvexService<
     return this
   }
 
-  // Default method with proper typing
   default<
     FieldPath extends ExtractFieldPathsWithoutSystemFields<DocumentType>,
     DefaultValue extends ValueOrFunctionFromValidator<DocumentType, FieldPath>
@@ -170,136 +166,48 @@ export class ConvexService<
     return this
   }
 
-  // Unique method implementation with proper overloads
-  unique<FieldPath extends ExtractFieldPathsWithoutSystemFields<DocumentType>>(
-    field: FieldPath
-  ): this
-  unique<
-    FirstFieldPath extends ExtractFieldPathsWithoutSystemFields<DocumentType>,
-    SecondFieldPath extends ExtractFieldPathsWithoutSystemFields<DocumentType>,
-    RestFieldPaths extends ExtractFieldPathsWithoutSystemFields<DocumentType>[]
-  >(
-    first: FirstFieldPath,
-    second: SecondFieldPath,
-    ...rest: RestFieldPaths
-  ): this
-  unique<
-    FirstFieldPath extends ExtractFieldPathsWithoutSystemFields<DocumentType>,
-    RestFieldPaths extends ExtractFieldPathsWithoutSystemFields<DocumentType>[]
-  >(fields: [FirstFieldPath, ...RestFieldPaths]): this
+  unique(field: UniqueField<DocumentType>): this
   unique(
-    ...args:
-      | [ExtractFieldPathsWithoutSystemFields<DocumentType>]
-      | [
-          ExtractFieldPathsWithoutSystemFields<DocumentType>,
-          ExtractFieldPathsWithoutSystemFields<DocumentType>,
-          ...ExtractFieldPathsWithoutSystemFields<DocumentType>[]
-        ]
-      | [
-          [
-            ExtractFieldPathsWithoutSystemFields<DocumentType>,
-            ...ExtractFieldPathsWithoutSystemFields<DocumentType>[]
-          ]
-        ]
+    fields: CompositeUniqueFields<DocumentType>,
+    onConflict: BaseOnConflict
+  ): this
+  unique(
+    fields: UniqueField<DocumentType> | CompositeUniqueFields<DocumentType>,
+    onConflict?: BaseOnConflict
   ): this {
-    if (args.length === 1) {
-      // Single field: unique('field') - INDIVIDUAL field uniqueness
-      this.index(`by_${args[0]}`, [
-        args[0] as ExtractFieldPathsWithConvexSystemFields<DocumentType>,
-      ])
-      this._state = {
-        ...this._state,
-        uniques: [
-          ...this._state.uniques,
-          {
-            fields: args[0],
-          },
-        ],
-      }
+    if (Array.isArray(fields)) {
+      const indexName = `by_${fields.join('_')}`
+      this.index(indexName, fields)
+      this._state.uniques.push({ fields, onConflict: onConflict ?? 'fail' })
     } else {
-      // Rest parameters: unique('field1', 'field2', ...) - Composite uniqueness
-      let indexName = 'by_'
-      const newUniques = args.map((field) => ({
-        fields: [field] as [ExtractFieldPathsWithoutSystemFields<DocumentType>],
-      }))
-      for (const unique of newUniques) {
-        indexName += `${unique.fields[0]} `
-      }
-      this.index(
-        indexName,
-        args as [
-          ExtractFieldPathsWithConvexSystemFields<DocumentType>,
-          ...ExtractFieldPathsWithConvexSystemFields<DocumentType>[]
-        ]
-      )
-      this._state = {
-        ...this._state,
-        uniques: [
-          ...this._state.uniques,
-          {
-            fields: newUniques.map((unique) => unique.fields[0]) as [
-              ExtractFieldPathsWithoutSystemFields<DocumentType>,
-              ...ExtractFieldPathsWithoutSystemFields<DocumentType>[]
-            ],
-          },
-        ],
-      }
+      const indexName = `by_${fields}`
+      this.index(indexName, [fields])
+      this._state.uniques.push({
+        fields,
+        onConflict: onConflict ?? 'fail',
+      })
     }
     return this
   }
-
-  // Validate method with proper overloads
   validate(): this
+  // Use the service's schema for the validate function.
+  validate(fn: FunctionValidateConstraint<ZodSchema>): this
   validate<Schema extends z.ZodTypeAny>(schema: Schema): this
-  validate(
-    validationFn: (
-      ctx: GenericQueryCtx<GenericDataModel>,
-      document: Expand<
-        z.infer<ZodSchema> &
-          SystemFieldsWithId<TableNamesInDataModel<GenericDataModel>>
-      >
-    ) => Promise<void> | void
-  ): this
-  validate(
-    schemaOrFn?:
-      | z.ZodTypeAny
-      | ((
-          ctx: GenericQueryCtx<GenericDataModel>,
-          document: Expand<
-            z.infer<ZodSchema> &
-              SystemFieldsWithId<TableNamesInDataModel<GenericDataModel>>
-          >
-        ) => Promise<void> | void)
+  validate<Schema extends z.ZodTypeAny>(
+    schemaOrFn?: ValidateConstraint<Schema>
   ): this {
-    // If no argument provided, use the default schema
     if (schemaOrFn === undefined) {
-      this._state.validate.schema = this._schema
+      this._state.validate = this._schema
       return this
     }
-
-    // Check if it's a function by checking if it has a 'call' method
-    if (typeof schemaOrFn === 'function') {
-      // It's a validation function
-      this._state.validate.validationFn = schemaOrFn as (
-        ctx: GenericQueryCtx<GenericDataModel>
-      ) => Promise<void> | void
-    } else {
-      // It's a Zod schema
-      this._state.validate.schema = schemaOrFn as z.ZodTypeAny
-    }
-
+    this._state.validate = schemaOrFn
     return this
   }
 
-  // Relation method with proper typing
   relation<
     FieldPath extends GetAllVIdPaths<DocumentType>,
     TableName extends TableNamesInDataModel<GenericDataModel>
-  >(
-    field: FieldPath,
-    table: TableName,
-    onDelete: 'cascade' | 'restrict' | 'setOptional'
-  ): this {
+  >(field: FieldPath, table: TableName, onDelete: BaseOnDelete): this {
     this._state.relations[field] = {
       path: field,
       table,
@@ -342,8 +250,6 @@ export class ConvexService<
       ),
       documentType: (this.validator as any).json,
     }
-
-    console.log(tableDefinition)
     return tableDefinition
   }
 
@@ -408,12 +314,10 @@ export class ConvexService<
       args: this._args,
       argsWithoutDefaults: argsWithoutDefaults,
     }
-    console.log('REGISTER', registeredService)
     return registeredService
   }
 }
 
-// Factory function to create a new ConvexService with proper typing
 export function defineService<ZodSchema extends z.ZodTypeAny>(
   zodSchema: ZodSchema
 ): ConvexServiceInterface<ZodSchema> {

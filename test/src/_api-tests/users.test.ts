@@ -7,11 +7,8 @@ describe('User Service API Tests', () => {
   })
 
   it('should have correct indexes configuration', () => {
-    UserService.export()
-    console.log(users)
     const config = users.$config
 
-    console.log(config.indexes)
     expect(Object.keys(config.indexes)).toHaveLength(5)
     expect(config.indexes).toContain('by_username')
     expect(config.indexes).toContain('by_email')

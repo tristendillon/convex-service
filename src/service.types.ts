@@ -11,7 +11,7 @@ import {
   VectorIndexConfig,
   type GenericQueryCtx,
 } from 'convex/server'
-import { z } from 'zod'
+import { ZodSchema, z } from 'zod'
 import { zodToConvex, type Zid } from 'convex-helpers/server/zod'
 import {
   GenericId,
@@ -23,270 +23,69 @@ import {
   Validator,
   type ValidatorJSON,
 } from 'convex/values'
+import {
+  BaseOnConflict,
+  CompositeUniqueFields,
+  ConvexValidatorFromZod,
+  ExportedTableDefinition,
+  ExtractFieldPathsWithConvexSystemFields,
+  ExtractFieldPathsWithoutSystemFields,
+  FunctionValidateConstraint,
+  GetAllVIdPaths,
+  JoinFieldPathsWithUnderscores,
+  OnDelete,
+  RelationConstraint,
+  ReplacePeriodWithUnderscore,
+  SystemFieldsWithId,
+  UniqueConstraint,
+  UniqueField,
+  ValueOrFunctionFromValidator,
+} from './shared-types'
+import {
+  UpdateDefault,
+  UpdateIndex,
+  UpdateName,
+  UpdateRelation,
+  UpdateSearchIndex,
+  UpdateUnique,
+  UpdateUniqueComposite,
+  UpdateValidateFunction,
+  UpdateValidateSchema,
+  UpdateVectorIndex,
+} from './service-updaters.types'
 
-export type ExportedTableDefinition = {
-  indexes: ExportedIndex[]
-  searchIndexes: ExportedSearchIndex[]
-  vectorIndexes: ExportedVectorIndex[]
-  documentType: ValidatorJSON
-}
-
-export type ExportedIndex<
-  DocumentType extends Validator<any, any, any> = Validator<any, any, any>
-> = {
-  indexDescriptor: string
-  fields: ExtractFieldPathsWithConvexSystemFields<DocumentType>[]
-}
-
-export type ExportedSearchIndex<
-  DocumentType extends Validator<any, any, any> = Validator<any, any, any>
-> = {
-  indexDescriptor: string
-  searchField: ExtractFieldPathsWithConvexSystemFields<DocumentType>
-  filterFields: ExtractFieldPathsWithConvexSystemFields<DocumentType>[]
-}
-
-export type ExportedVectorIndex<
-  DocumentType extends Validator<any, any, any> = Validator<any, any, any>
-> = {
-  indexDescriptor: string
-  vectorField: ExtractFieldPathsWithConvexSystemFields<DocumentType>
-  dimensions: number
-  filterFields: ExtractFieldPathsWithConvexSystemFields<DocumentType>[]
-}
-
-export type ConvexValidatorFromZod<ZodSchema extends z.ZodTypeAny> = ReturnType<
-  typeof zodToConvex<ZodSchema>
->
-
-type ValueOrFunction<T> = T | (() => T)
-
-type ExtractDocumentType<T extends GenericValidator> = T extends Validator<
-  infer DocType,
-  any,
-  any
->
-  ? DocType
-  : never
-
-type GetFieldType<
-  DocType,
-  FieldPath extends string | number | symbol
-> = DocType extends Record<string | number | symbol, any>
-  ? FieldPath extends keyof DocType
-    ? DocType[FieldPath]
-    : FieldPath extends `${infer First}.${infer Rest}`
-    ? First extends keyof DocType
-      ? GetFieldType<DocType[First], Rest>
-      : unknown
-    : unknown
-  : unknown
-
-type ReplacePeriodWithUnderscore<T extends string> =
-  T extends `${infer Before}.${infer After}`
-    ? `${Before}_${ReplacePeriodWithUnderscore<After>}`
-    : T
-
-type JoinFieldPathsWithUnderscores<T extends readonly string[]> =
-  T extends readonly [infer First, ...infer Rest]
-    ? First extends string
-      ? Rest extends readonly string[]
-        ? Rest['length'] extends 0
-          ? ReplacePeriodWithUnderscore<First>
-          : `${ReplacePeriodWithUnderscore<First>}_${JoinFieldPathsWithUnderscores<Rest>}`
-        : never
-      : never
-    : ''
-
-export type ValueOrFunctionFromValidator<
-  ValidatorType extends GenericValidator,
-  FieldPath extends ExtractFieldPathsWithConvexSystemFields<ValidatorType>
-> = FieldPath extends keyof SystemFields
-  ? never
-  : GetFieldType<
-      ExtractDocumentType<ValidatorType>,
-      FieldPath
-    > extends infer FieldType
-  ? FieldType extends never
-    ? unknown
-    : ValueOrFunction<FieldType>
-  : ValueOrFunction<unknown>
-
-export type SystemFieldsWithId<TableName extends string> = SystemFields & {
-  _id: GenericId<TableName>
-}
-
-export type GetValidatorAtPath<
-  V extends Validator<any, any, any>,
-  Path extends string
-> = Path extends `${infer Key}.${infer Rest}`
-  ? V extends VObject<any, infer Fields, any, any>
-    ? Key extends keyof Fields
-      ? GetValidatorAtPath<Fields[Key], Rest>
-      : never
-    : V extends VArray<any, infer Element, any>
-    ? GetValidatorAtPath<Element, Path>
-    : never
-  : V extends VObject<any, infer Fields, any, any>
-  ? Path extends keyof Fields
-    ? Fields[Path]
-    : never
-  : V extends VArray<any, infer Element, any>
-  ? GetValidatorAtPath<Element, Path>
-  : never
-
-export type IsOptionalValidator<V extends Validator<any, any, any>> =
-  V extends Validator<any, 'optional', any> ? true : false
-
-export type BaseOnDelete = 'cascade' | 'restrict'
-
-export type OnDelete<
-  DocumentType extends Validator<any, any, any>,
-  FieldPath extends GetAllVIdPaths<DocumentType>
-> = GetValidatorAtPath<DocumentType, FieldPath> extends infer FieldValidator
-  ? FieldValidator extends Validator<any, any, any>
-    ?
-        | BaseOnDelete
-        | (IsOptionalValidator<FieldValidator> extends true
-            ? 'setOptional'
-            : never)
-    : BaseOnDelete
-  : BaseOnDelete
-
-export type JoinFieldPaths<
-  Start extends string,
-  End extends string
-> = `${Start}.${End}`
-export type GetAllVIdPaths<
-  V extends Validator<any, any, any>,
-  Prefix extends string = '',
-  Depth extends number = 0
-> = Depth extends 4 // Reduced depth limit from 8 to 4
-  ? never
-  : V extends VId<any, any>
-  ? Prefix extends ''
-    ? never
-    : Prefix
-  : V extends VObject<any, infer Fields, any, any>
-  ? Fields extends Record<string, Validator<any, any, any>>
-    ? {
-        [K in keyof Fields]: K extends string
-          ? Fields[K] extends VId<any, any>
-            ? Prefix extends ''
-              ? K
-              : `${Prefix}.${K}`
-            : GetAllVIdPaths<
-                Fields[K],
-                Prefix extends '' ? K : `${Prefix}.${K}`,
-                Add1<Depth>
-              >
-          : never
-      }[keyof Fields]
-    : never
-  : V extends VArray<any, infer Element, any>
-  ? GetAllVIdPaths<Element, Prefix, Add1<Depth>>
-  : V extends VUnion<any, infer Members, any, any>
-  ? Members extends readonly Validator<any, any, any>[]
-    ? {
-        [K in keyof Members]: Members[K] extends Validator<any, any, any>
-          ? GetAllVIdPaths<Members[K], Prefix, Add1<Depth>>
-          : never
-      }[number]
-    : never
-  : never
-
-type Add1<N extends number> = N extends 0
-  ? 1
-  : N extends 1
-  ? 2
-  : N extends 2
-  ? 3
-  : 4
-
-export type ExtractFieldPathsWithConvexSystemFields<
-  T extends Validator<any, any, any>
-> = T['fieldPaths'] | keyof SystemFields
-
-export type ExtractFieldPathsWithSystemFields<
-  T extends Validator<any, any, any>,
-  TableName extends string
-> = T['fieldPaths'] | keyof SystemFieldsWithId<TableName>
-
-export type ExtractFieldPathsWithoutSystemFields<
-  T extends Validator<any, any, any>
-> = T['fieldPaths']
-
-type DefaultsState<DocumentType extends GenericValidator = GenericValidator> =
-  Partial<{
-    [K in ExtractFieldPathsWithoutSystemFields<DocumentType>]: ValueOrFunctionFromValidator<
-      DocumentType,
-      K
-    >
-  }>
-
-type UniqueConstraint<
+export type DefaultsState<
   DocumentType extends GenericValidator = GenericValidator
-> = {
-  fields: [
-    ExtractFieldPathsWithoutSystemFields<DocumentType>,
-    ...ExtractFieldPathsWithoutSystemFields<DocumentType>[]
-  ]
-}
-
-type UniquesState<DocumentType extends GenericValidator = GenericValidator> =
-  Array<UniqueConstraint<DocumentType>>
-
-type ValidateState<ZodSchema extends z.ZodTypeAny = z.ZodTypeAny> = Partial<{
-  schema: ZodSchema
-  validationFn: (
-    ctx: GenericQueryCtx<GenericDataModel>,
-    document: Expand<
-      z.infer<ZodSchema> &
-        SystemFieldsWithId<TableNamesInDataModel<GenericDataModel>>
-    >
-  ) => Promise<void> | void
+> = Partial<{
+  [K in ExtractFieldPathsWithoutSystemFields<DocumentType>]: ValueOrFunctionFromValidator<
+    DocumentType,
+    K
+  >
 }>
 
-type RelationConfig<
-  DocumentType extends GenericValidator,
-  FieldPath extends GetAllVIdPaths<DocumentType>
+export type UniquesState<
+  DocumentType extends GenericValidator = GenericValidator
+> = Array<UniqueConstraint<DocumentType>>
+
+export type ValidateState<ZodSchema extends z.ZodTypeAny = z.ZodTypeAny> =
+  | FunctionValidateConstraint<ZodSchema>
+  | ZodSchema
+
+export type RelationsState<
+  DocumentType extends GenericValidator = GenericValidator
 > = {
-  path: FieldPath
-  table: TableNamesInDataModel<GenericDataModel>
-  onDelete: BaseOnDelete | 'setOptional'
+  [K in GetAllVIdPaths<DocumentType>]?: RelationConstraint<DocumentType, K>
 }
 
-type RelationsState<DocumentType extends GenericValidator = GenericValidator> =
-  {
-    [K in GetAllVIdPaths<DocumentType>]?: RelationConfig<DocumentType, K>
-  }
-
 export interface BuilderState<
-  DocumentType extends GenericValidator = GenericValidator
+  DocumentType extends GenericValidator = GenericValidator,
+  ZodSchema extends z.ZodTypeAny = z.ZodTypeAny
 > {
   defaults: DefaultsState<DocumentType>
   uniques: UniquesState<DocumentType>
-  validate: ValidateState
+  validate: ValidateState<ZodSchema>
   relations: RelationsState<DocumentType>
 }
-
-type UpdateRelations<
-  State extends BuilderState<any>,
-  DocumentType extends GenericValidator,
-  FieldPath extends GetAllVIdPaths<DocumentType>,
-  TableName extends TableNamesInDataModel<GenericDataModel>,
-  OnDeleteAction extends OnDelete<DocumentType, FieldPath>
-> = State extends BuilderState<DocumentType>
-  ? Omit<State, 'relations'> & {
-      relations: State['relations'] & {
-        [K in FieldPath]: {
-          path: FieldPath
-          table: TableName
-          onDelete: OnDeleteAction
-        }
-      }
-    }
-  : never
 
 export interface ConvexServiceInterface<
   ZodSchema extends z.ZodTypeAny = z.ZodTypeAny,
@@ -299,7 +98,10 @@ export interface ConvexServiceInterface<
   Indexes extends GenericTableIndexes = {},
   SearchIndexes extends GenericTableSearchIndexes = {},
   VectorIndexes extends GenericTableVectorIndexes = {},
-  State extends BuilderState<DocumentType> = BuilderState<DocumentType>
+  State extends BuilderState<DocumentType, ZodSchema> = BuilderState<
+    DocumentType,
+    ZodSchema
+  >
 > extends TableDefinition<DocumentType, Indexes, SearchIndexes, VectorIndexes> {
   tableName: TableName
   schema: Intersection
@@ -315,13 +117,7 @@ export interface ConvexServiceInterface<
     tableName: NewTableName
   ): ConvexServiceInterface<
     ZodSchema,
-    z.ZodIntersection<
-      z.ZodObject<{
-        _id: Zid<NewTableName>
-        _creationTime: z.ZodNumber
-      }>,
-      ZodSchema
-    >,
+    UpdateName<ZodSchema, NewTableName>,
     NewTableName,
     DocumentType,
     Indexes,
@@ -342,9 +138,12 @@ export interface ConvexServiceInterface<
     Intersection,
     TableName,
     DocumentType,
-    Expand<
-      Indexes &
-        Record<IndexName, [FirstFieldPath, ...RestFieldPaths, '_creationTime']>
+    UpdateIndex<
+      ZodSchema,
+      Indexes,
+      DocumentType,
+      IndexName,
+      [FirstFieldPath, ...RestFieldPaths]
     >,
     SearchIndexes,
     VectorIndexes,
@@ -364,15 +163,13 @@ export interface ConvexServiceInterface<
     TableName,
     DocumentType,
     Indexes,
-    Expand<
-      SearchIndexes &
-        Record<
-          IndexName,
-          {
-            searchField: SearchField
-            filterFields: FilterFields
-          }
-        >
+    UpdateSearchIndex<
+      ZodSchema,
+      SearchIndexes,
+      DocumentType,
+      IndexName,
+      SearchField,
+      FilterFields
     >,
     VectorIndexes,
     State
@@ -392,16 +189,13 @@ export interface ConvexServiceInterface<
     DocumentType,
     Indexes,
     SearchIndexes,
-    Expand<
-      VectorIndexes &
-        Record<
-          IndexName,
-          {
-            vectorField: VectorField
-            dimensions: number
-            filterFields: FilterFields
-          }
-        >
+    UpdateVectorIndex<
+      ZodSchema,
+      VectorIndexes,
+      DocumentType,
+      IndexName,
+      VectorField,
+      FilterFields
     >,
     State
   >
@@ -426,34 +220,30 @@ export interface ConvexServiceInterface<
     Indexes,
     SearchIndexes,
     VectorIndexes,
-    Expand<State & { defaults: { [K in FieldPath]: DefaultValue } }>
+    UpdateDefault<ZodSchema, State, DocumentType, FieldPath, DefaultValue>
   >
 
   /**
    * Builder function to define a unique constraint on a single field.
    * @param field - The field that should be unique
    */
-  unique<FieldPath extends ExtractFieldPathsWithoutSystemFields<DocumentType>>(
+  unique<FieldPath extends UniqueField<DocumentType>>(
     field: FieldPath
   ): ConvexServiceInterface<
     ZodSchema,
     Intersection,
     TableName,
     DocumentType,
-    Expand<
-      Indexes &
-        Record<
-          `by_${ReplacePeriodWithUnderscore<FieldPath>}`,
-          [FieldPath, '_creationTime']
-        >
+    UpdateIndex<
+      ZodSchema,
+      Indexes,
+      DocumentType,
+      `by_${ReplacePeriodWithUnderscore<FieldPath>}`,
+      [FieldPath, '_creationTime']
     >,
     SearchIndexes,
     VectorIndexes,
-    Expand<
-      Omit<State, 'uniques'> & {
-        uniques: [...State['uniques'], { fields: [FieldPath] }]
-      }
-    >
+    UpdateUnique<ZodSchema, State, DocumentType, FieldPath>
   >
 
   /**
@@ -464,40 +254,31 @@ export interface ConvexServiceInterface<
    * @returns A ConvexService instance with the unique constraint set
    */
   unique<
-    FirstFieldPath extends ExtractFieldPathsWithoutSystemFields<DocumentType>,
-    SecondFieldPath extends ExtractFieldPathsWithoutSystemFields<DocumentType>,
-    RestFieldPaths extends ExtractFieldPathsWithoutSystemFields<DocumentType>[]
+    FieldPaths extends CompositeUniqueFields<DocumentType>,
+    OnConflict extends BaseOnConflict = 'fail'
   >(
-    first: FirstFieldPath,
-    second: SecondFieldPath,
-    ...rest: RestFieldPaths
+    fields: FieldPaths,
+    onConflict: OnConflict
   ): ConvexServiceInterface<
     ZodSchema,
     Intersection,
     TableName,
     DocumentType,
-    Expand<
-      Indexes &
-        Record<
-          `by_${JoinFieldPathsWithUnderscores<
-            [FirstFieldPath, SecondFieldPath, ...RestFieldPaths]
-          >}`,
-          [FirstFieldPath, SecondFieldPath, ...RestFieldPaths, '_creationTime']
-        >
+    UpdateIndex<
+      ZodSchema,
+      Indexes,
+      DocumentType,
+      `by_${JoinFieldPathsWithUnderscores<FieldPaths>}`,
+      [...FieldPaths, '_creationTime']
     >,
     SearchIndexes,
     VectorIndexes,
-    Expand<
-      Omit<State, 'uniques'> & {
-        uniques: [
-          ...State['uniques'],
-          { fields: [FirstFieldPath] },
-          { fields: [SecondFieldPath] },
-          ...{
-            [I in keyof RestFieldPaths]: { fields: [RestFieldPaths[I]] }
-          }
-        ]
-      }
+    UpdateUniqueComposite<
+      ZodSchema,
+      State,
+      DocumentType,
+      FieldPaths,
+      OnConflict
     >
   >
 
@@ -516,7 +297,7 @@ export interface ConvexServiceInterface<
     Indexes,
     SearchIndexes,
     VectorIndexes,
-    Expand<State & { validate: { schema: Schema } }>
+    UpdateValidateSchema<ZodSchema, State, DocumentType, Schema>
   >
 
   /**
@@ -542,7 +323,7 @@ export interface ConvexServiceInterface<
     Indexes,
     SearchIndexes,
     VectorIndexes,
-    Expand<State & { validate: { validationFn: typeof validationFn } }>
+    UpdateValidateFunction<ZodSchema, State, DocumentType, ValidationFn>
   >
 
   /**
@@ -564,22 +345,10 @@ export interface ConvexServiceInterface<
     Intersection,
     TableName,
     DocumentType,
-    Expand<
-      Indexes &
-        Record<
-          `by_${ReplacePeriodWithUnderscore<FieldPath>}`,
-          [FieldPath, '_creationTime']
-        >
-    >,
+    Indexes,
     SearchIndexes,
     VectorIndexes,
-    UpdateRelations<
-      State,
-      DocumentType,
-      FieldPath,
-      TableName,
-      OnDelete<DocumentType, FieldPath>
-    >
+    UpdateRelation<ZodSchema, State, DocumentType, FieldPath, TableName>
   >
 
   /**
