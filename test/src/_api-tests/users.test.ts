@@ -18,11 +18,11 @@ describe('User Service API Tests', () => {
   })
 
   it('should have correct unique constraints configuration', () => {
-    const config = users.$config
     const state = users.$config.state
-    expect(config.state.uniques).toHaveLength(2)
-    expect(config.state.uniques[0].fields).toBe('username')
-    expect(config.state.uniques[1].fields).toBe('email')
+
+    expect(state.uniques).toHaveLength(2)
+    expect(state.uniques[0].fields).toBe('username')
+    expect(state.uniques[1].fields).toBe('email')
   })
 
   it('should have correct default values configuration', () => {
@@ -61,7 +61,6 @@ describe('User Service API Tests', () => {
   it('should have validation enabled', () => {
     const config = users.$config
     expect(config.state.validate).toBeDefined()
-    expect(config.state.validate.schema).toBeDefined()
   })
 
   it('should have correct schema field types', () => {

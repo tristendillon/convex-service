@@ -41,22 +41,6 @@ type GetFieldType<
     : unknown
   : unknown
 
-export type ReplacePeriodWithUnderscore<T extends string> =
-  T extends `${infer Before}.${infer After}`
-    ? `${Before}_${ReplacePeriodWithUnderscore<After>}`
-    : T
-
-export type JoinFieldPathsWithUnderscores<T extends readonly string[]> =
-  T extends readonly [infer First, ...infer Rest]
-    ? First extends string
-      ? Rest extends readonly string[]
-        ? Rest['length'] extends 0
-          ? ReplacePeriodWithUnderscore<First>
-          : `${ReplacePeriodWithUnderscore<First>}_${JoinFieldPathsWithUnderscores<Rest>}`
-        : never
-      : never
-    : ''
-
 export type ExtractFieldPathsWithConvexSystemFields<
   T extends Validator<any, any, any>
 > = T['fieldPaths'] | keyof SystemFields

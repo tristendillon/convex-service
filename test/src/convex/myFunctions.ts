@@ -20,10 +20,7 @@ export const myFunction = internalMutation({
 // You can read data from the database via a query:
 export const myQuery = internalQuery({
   handler: async (ctx) => {
-    const users = await
-      ctx.db.query('users')
-        .withIndex("")
-        .collect()
+    const users = await ctx.db.query('users').withIndex('by_age').collect()
     console.log(users)
     return false
   },

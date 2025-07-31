@@ -41,7 +41,7 @@ type VectorIndex<DocumentType extends GenericValidator> = {
 export class ConvexService<
   ZodSchema extends z.ZodTypeAny,
   DocumentType extends ConvexValidatorFromZod<ZodSchema> = ConvexValidatorFromZod<ZodSchema>,
-  State extends BuilderState<ZodSchema> = BuilderState<ZodSchema>
+  State extends BuilderState<DocumentType> = BuilderState<DocumentType>
 > {
   private indexes: Record<string, Index<DocumentType>> = {}
   private searchIndexes: Record<string, SearchIndex<DocumentType>> = {}
@@ -64,7 +64,7 @@ export class ConvexService<
     this._state = {
       defaults: {},
       uniques: [],
-      validate: {},
+      validate: undefined,
       relations: {},
     } as unknown as State
   }
