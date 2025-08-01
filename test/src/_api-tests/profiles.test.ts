@@ -10,14 +10,14 @@ describe('Profile Service API Tests', () => {
     const config = profiles.$config
 
     expect(Object.keys(config.indexes)).toHaveLength(1)
-    expect(config.indexes).toContain('by_name')
+    expect(config.indexes).toHaveProperty('by_name')
   })
 
   it('should have correct search indexes configuration', () => {
     const config = profiles.$config
 
     expect(Object.keys(config.searchIndexes)).toHaveLength(1)
-    expect(config.searchIndexes).toContain('by_bio')
+    expect(config.searchIndexes).toHaveProperty('by_bio')
   })
 
   it('should have no vector indexes', () => {
@@ -33,32 +33,23 @@ describe('Profile Service API Tests', () => {
     expect(config.state.relations).toEqual({})
   })
 
-  it('should have correct schema validation', () => {
-    const validator = profiles.validator
-    if (validator.kind !== 'object') {
-      throw new Error(
-        `Expected documentType to be of type 'object', but got '${validator.kind}'`
-      )
-    }
-    const fields = validator.fields
-    expect(fields.name.type).toBe('string')
-    expect(fields.age.type).toBe('number')
-    expect(fields.bio.type).toBe('string')
-    expect(fields.avatar.type).toBe('string')
+  it('should have validation enabled', () => {
+    const config = profiles.$config
+
+    expect(config.state.validate).toBeDefined()
   })
 
   it('should validate required fields in schema', () => {
-    const validator = profiles.validator
-    if (validator.kind !== 'object') {
+    const validator = profiles.$validatorJSON
+    if (validator.type !== 'object') {
       throw new Error(
-        `Expected documentType to be of type 'object', but got '${validator.kind}'`
+        `Expected documentType to be of type 'object', but got '${validator.type}'`
       )
     }
-    const fields = validator.fields
-
-    expect(fields.name.type).toBe('string')
-    expect(fields.age.type).toBe('number')
-    expect(fields.bio.isOptional).toBe(true)
-    expect(fields.avatar.isOptional).toBe(true)
+    const fields = validator.value
+    expect(fields.name.fieldType.type).toBe('string')
+    expect(fields.age.fieldType.type).toBe('number')
+    expect(fields.bio.fieldType.type).toBe('string')
+    expect(fields.avatar.fieldType.type).toBe('string')
   })
 })

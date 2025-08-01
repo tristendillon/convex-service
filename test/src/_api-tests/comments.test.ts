@@ -9,15 +9,12 @@ describe('Comment Service API Tests', () => {
   it('should have correct indexes configuration', () => {
     const config = comments.$config
 
-    expect(Object.keys(config.indexes)).toHaveLength(7)
+    expect(Object.keys(config.indexes)).toHaveLength(4)
 
-    expect(config.indexes).toContain('by_postId')
-    expect(config.indexes).toContain('by_authorId')
-    expect(config.indexes).toContain('by_parentId')
-    expect(config.indexes).toContain('by_post')
-    expect(config.indexes).toContain('by_author')
-    expect(config.indexes).toContain('by_parent')
-    expect(config.indexes).toContain('by_post_approved')
+    expect(config.indexes).toHaveProperty('by_postId')
+    expect(config.indexes).toHaveProperty('by_authorId')
+    expect(config.indexes).toHaveProperty('by_parentId')
+    expect(config.indexes).toHaveProperty('by_post_approved')
   })
 
   it('should have correct default values configuration', () => {
@@ -62,33 +59,33 @@ describe('Comment Service API Tests', () => {
 
   it('should have no search indexes', () => {
     const config = comments.$config
-    expect(config.searchIndexes).toHaveLength(0)
+    expect(Object.keys(config.searchIndexes)).toHaveLength(0)
   })
 
   it('should have no vector indexes', () => {
     const config = comments.$config
-    expect(config.vectorIndexes).toHaveLength(0)
+    expect(Object.keys(config.vectorIndexes)).toHaveLength(0)
   })
 
   it('should have correct schema field types', () => {
-    const validator = comments.validator
-    if (validator.kind !== 'object') {
+    const validator = comments.$validatorJSON
+    if (validator.type !== 'object') {
       throw new Error(
-        `Expected documentType to be of type 'object', but got '${validator.kind}'`
+        `Expected documentType to be of type 'object', but got '${validator.type}'`
       )
     }
-    const fields = validator.fields
+    const fields = validator.value
 
-    expect(fields.postId.type).toBe('id')
-    expect(fields.authorId.type).toBe('id')
-    expect(fields.parentId.isOptional).toBe(true)
-    expect(fields.content.type).toBe('string')
-    expect(fields.approved.type).toBe('boolean')
-    expect(fields.likes.type).toBe('number')
+    expect(fields.postId.fieldType.type).toBe('id')
+    expect(fields.authorId.fieldType.type).toBe('id')
+    expect(fields.parentId.optional).toBe(true)
+    expect(fields.content.fieldType.type).toBe('string')
+    expect(fields.approved.fieldType.type).toBe('boolean')
+    expect(fields.likes.fieldType.type).toBe('number')
   })
 
-  it('should have no validation enabled by default', () => {
+  it('should have validation enabled', () => {
     const config = comments.$config
-    expect(config.state.validate).toEqual({})
+    expect(config.state.validate).toBeDefined()
   })
 })

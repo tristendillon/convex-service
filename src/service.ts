@@ -168,10 +168,10 @@ export class ConvexService<
   }
 
   // Default method with proper typing
-  default<
-    FieldPath extends ExtractFieldPathsWithoutSystemFields<DocumentType>,
-    DefaultValue extends ValueOrFunctionFromValidator<DocumentType, FieldPath>
-  >(field: FieldPath, value: DefaultValue): this {
+  default<DefaultValue extends ValueOrFunctionFromValidator<DocumentType>>(
+    field: string,
+    value: DefaultValue
+  ): this {
     this._state.defaults[field] = value
     return this
   }
@@ -186,16 +186,19 @@ export class ConvexService<
     onConflict?: BaseOnConflict
   ): this {
     if (Array.isArray(fields)) {
-      const indexName = `by_${fields.join('_')}`
-      this.index(indexName, fields)
-      this._state.uniques.push({ fields, onConflict: onConflict ?? 'fail' })
-    } else {
-      const indexName = `by_${fields}`
-      this.index(indexName, [fields])
-      this._state.uniques.push({
+      const fixedIndexName = this.fixIndexName(`by_${fields.join('_')}`)
+      this.index(fixedIndexName, fields)
+      this._state.uniques[fixedIndexName] = {
         fields,
         onConflict: onConflict ?? 'fail',
-      })
+      }
+    } else {
+      const fixedIndexName = this.fixIndexName(`by_${fields}`)
+      this.index(fixedIndexName, [fields])
+      this._state.uniques[fixedIndexName] = {
+        fields,
+        onConflict: onConflict ?? 'fail',
+      }
     }
     return this
   }
@@ -325,7 +328,6 @@ export class ConvexService<
       args: this._args,
       argsWithoutDefaults: argsWithoutDefaults,
     }
-    console.log('REGISTER', registeredService)
     return registeredService
   }
 }

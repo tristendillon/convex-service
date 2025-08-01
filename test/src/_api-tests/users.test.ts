@@ -20,26 +20,25 @@ describe('User Service API Tests', () => {
   it('should have correct unique constraints configuration', () => {
     const config = users.$config
 
-    expect(config.state.uniques).toHaveLength(3)
-    expect(config.state.uniques[0].fields).toBe('username')
-    expect(config.state.uniques[1].fields).toBe('email')
-    expect(config.state.uniques[2].fields).toEqual(['email', 'username'])
-    expect(config.state.uniques[2].onConflict).toEqual('replace')
+    expect(config.state.uniques.by_username.fields).toEqual('username')
+    expect(config.state.uniques.by_email.fields).toEqual('email')
+    expect(config.state.uniques.by_email_username.fields).toEqual([
+      'email',
+      'username',
+    ])
+    expect(config.state.uniques.by_email_username.onConflict).toBe('replace')
   })
 
   it('should have correct default values configuration', () => {
     const config = users.$config
 
-    expect(config.state.defaults).toEqual({
-      age: 18,
-      isActive: true,
-    })
+    expect(config.state.defaults.age).toBe(18)
+    expect(config.state.defaults.isActive).toBe(true)
   })
 
   it('should have correct relations configuration', () => {
     const config = users.$config
 
-    expect(config.state.relations).toHaveProperty('profileId')
     expect(config.state.relations.profileId).toEqual({
       path: 'profileId',
       table: 'profiles',

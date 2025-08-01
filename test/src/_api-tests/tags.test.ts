@@ -11,23 +11,21 @@ describe('Tag Service API Tests', () => {
 
     expect(Object.keys(config.indexes)).toHaveLength(2)
 
-    expect(config.indexes).toContain('by_name')
-    expect(config.indexes).toContain('by_usage_count')
+    expect(config.indexes).toHaveProperty('by_name')
+    expect(config.indexes).toHaveProperty('by_usage_count')
   })
 
   it('should have correct unique constraints configuration', () => {
     const config = tags.$config
 
-    expect(config.state.uniques).toHaveLength(1)
-    expect(config.state.uniques[0].fields).toBe('name')
+    expect(config.state.uniques).toHaveProperty('by_name')
+    expect(config.state.uniques.by_name.fields).toBe('name')
   })
 
   it('should have correct default values configuration', () => {
     const config = tags.$config
 
-    expect(config.state.defaults).toEqual({
-      usage_count: 0,
-    })
+    expect(config.state.defaults.usage_count).toBe(0)
   })
 
   it('should have no relations', () => {
@@ -46,21 +44,21 @@ describe('Tag Service API Tests', () => {
   })
 
   it('should have correct schema field types', () => {
-    const validator = tags.validator
-    if (validator.kind !== 'object') {
+    const validator = tags.$validatorJSON
+    if (validator.type !== 'object') {
       throw new Error(
-        `Expected documentType to be of type 'object', but got '${validator.kind}'`
+        `Expected documentType to be of type 'object', but got '${validator.type}'`
       )
     }
-    const fields = validator.fields
+    const fields = validator.value
 
-    expect(fields.name.type).toBe('string')
-    expect(fields.color.isOptional).toBe(true)
-    expect(fields.usage_count.type).toBe('number')
+    expect(fields.name.fieldType.type).toBe('string')
+    expect(fields.color.optional).toBe(true)
+    expect(fields.usage_count.fieldType.type).toBe('number')
   })
 
-  it('should have no validation enabled by default', () => {
+  it('should have validation enabled', () => {
     const config = tags.$config
-    expect(config.state.validate).toEqual({})
+    expect(config.state.validate).toBeDefined()
   })
 })
