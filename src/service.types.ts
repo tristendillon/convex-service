@@ -219,7 +219,7 @@ export type ExtractFieldPathsWithoutSystemFields<
   T extends Validator<any, any, any>
 > = T['fieldPaths']
 
-type DefaultsState<
+export type DefaultsState<
   DocumentType extends GenericValidator = GenericValidator,
   // When this expands it will be a union of all the defaults
   FieldPath extends string = string
@@ -296,7 +296,7 @@ export interface ConvexServiceInterface<
     z.ZodTypeAny
   > = z.ZodIntersection<z.ZodObject<any>, z.ZodTypeAny>,
   TableName extends string = string,
-  DocumentType extends ConvexValidatorFromZod<ZodSchema> = ConvexValidatorFromZod<ZodSchema>,
+  DocumentType extends GenericValidator = ConvexValidatorFromZod<ZodSchema>,
   Indexes extends GenericTableIndexes = {},
   SearchIndexes extends GenericTableSearchIndexes = {},
   VectorIndexes extends GenericTableVectorIndexes = {},
@@ -624,7 +624,7 @@ export interface RegisteredServiceDefinition<
     z.ZodTypeAny
   > = z.ZodIntersection<z.ZodObject<any>, z.ZodTypeAny>,
   TableName extends string = string,
-  DocumentType extends ConvexValidatorFromZod<ZodSchema> = ConvexValidatorFromZod<ZodSchema>,
+  DocumentType extends GenericValidator = ConvexValidatorFromZod<ZodSchema>,
   Indexes extends GenericTableIndexes = {},
   SearchIndexes extends GenericTableSearchIndexes = {},
   VectorIndexes extends GenericTableVectorIndexes = {},

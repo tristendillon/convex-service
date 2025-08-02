@@ -13,7 +13,7 @@ importers:
         version: 1.25.4
       convex-sql:
         specifier: file:../
-        version: file:..(convex@1.25.4)(typescript@5.8.3)(zod@3.25.76)
+        version: file:..(convex-helpers@0.1.100(convex@1.25.4)(typescript@5.8.3)(zod@3.25.76))(convex@1.25.4)(zod@3.25.76)
     devDependencies:
       '@edge-runtime/vm':
         specifier: ^5.0.0
@@ -601,8 +601,9 @@ packages:
   convex-sql@file:..:
     resolution: {directory: .., type: directory}
     peerDependencies:
-      convex: '>=1.0.0'
-      zod: '>=3.0.0'
+      convex: ^1.14.0
+      convex-helpers: ^0.1.54
+      zod: ^3.23.8
 
   convex-test@0.0.38:
     resolution: {integrity: sha512-1o/3GvUR9gMLjiqq7SxchI/0OYQaWwbQC4INmB1SNt1WLBjUgEM8+brgpqrZwJ+Vb1DdGZokCVeihwT5IPk49w==}
@@ -1680,16 +1681,11 @@ snapshots:
       typescript: 5.8.3
       zod: 3.25.76
 
-  convex-sql@file:..(convex@1.25.4)(typescript@5.8.3)(zod@3.25.76):
+  convex-sql@file:..(convex-helpers@0.1.100(convex@1.25.4)(typescript@5.8.3)(zod@3.25.76))(convex@1.25.4)(zod@3.25.76):
     dependencies:
       convex: 1.25.4
       convex-helpers: 0.1.100(convex@1.25.4)(typescript@5.8.3)(zod@3.25.76)
       zod: 3.25.76
-    transitivePeerDependencies:
-      - '@standard-schema/spec'
-      - hono
-      - react
-      - typescript
 
   convex-test@0.0.38(convex@1.25.4):
     dependencies:

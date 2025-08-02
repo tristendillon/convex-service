@@ -7,13 +7,8 @@ import {
   BuilderState,
   ConvexValidatorFromZod,
   ExtractFieldPathsWithConvexSystemFields,
-  ExtractFieldPathsWithoutSystemFields,
   ValueOrFunctionFromValidator,
-  type ExportedIndex,
-  type ExportedSearchIndex,
-  type ExportedVectorIndex,
   type GetAllVIdPaths,
-  type SystemFieldsWithId,
   GenericRegisteredServiceDefinition,
   CreateWithoutSystemFields,
   ExportedTableDefinition,
@@ -24,12 +19,7 @@ import {
   ValidateState,
   BaseOnDelete,
 } from './service.types'
-import {
-  GenericQueryCtx,
-  GenericDataModel,
-  type TableNamesInDataModel,
-  type Expand,
-} from 'convex/server'
+import { GenericDataModel, type TableNamesInDataModel } from 'convex/server'
 import { GenericValidator } from 'convex/values'
 
 type Index<DocumentType extends GenericValidator> =

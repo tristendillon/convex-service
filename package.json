@@ -23,7 +23,7 @@
   ],
   "author": "",
   "license": "MIT",
-  "dependencies": {
+  "peerDependencies": {
     "convex": "^1.14.0",
     "convex-helpers": "^0.1.54",
     "zod": "^3.23.8"
@@ -37,10 +37,6 @@
     "eslint": "^8.56.0",
     "typescript": "^5.3.0",
     "vitest": "^1.2.0"
-  },
-  "peerDependencies": {
-    "convex": ">=1.0.0",
-    "zod": ">=3.0.0"
   },
   "files": [
     "dist/**/*"

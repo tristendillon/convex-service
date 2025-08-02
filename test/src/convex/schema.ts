@@ -126,17 +126,20 @@ const TagService = defineService(
   .default('usage_count', 0)
   .validate()
 
-const schema = {
+export const ServiceSchema = defineServiceSchema({
   profiles: ProfileService.register(),
   users: UserService.register(),
   posts: PostService.register(),
   categories: CategoryService.register(),
   comments: CommentService.register(),
   tags: TagService.register(),
-}
-export const ServiceSchema = defineServiceSchema(schema)
+})
+  // other schema builders
+  .register()
 
-export const { profiles, users, posts, categories, comments, tags } = schema
+// export const {
+//   services: { profiles, users, posts, categories, comments, tags },
+// } = ServiceSchema
 
 export default defineSchema({
   profiles: ProfileService,
