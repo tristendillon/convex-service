@@ -28,7 +28,7 @@ type ExtractFieldPaths<T extends Validator<any, any, any>> =
 /**
  * @public
  */
-type ExtractDocument<T extends Validator<any, any, any>> =
+export type ExtractDocument<T extends Validator<any, any, any>> =
   // Add the system fields to `Value` (except `_id` because it depends on
   //the table name) and trick TypeScript into expanding them.
   Expand<SystemFields & T['type']>

@@ -3,38 +3,21 @@ import {
   DocumentByName,
   GenericDataModel,
   GenericDatabaseWriter,
-  GenericDocument,
   GenericMutationCtx,
   TableNamesInDataModel,
   WithoutSystemFields,
 } from 'convex/server'
 import { GenericId } from 'convex/values'
 import { GenericServiceSchema } from './schema.types'
-import {
-  GenericRegisteredServiceDefinition,
-  ValueOrFunctionFromValidator,
-  DefaultsState,
-} from './service.types'
+import { GenericRegisteredServiceDefinition } from './service.types'
+import z from 'zod'
 
-// SOLUTION: Target the specific service for this table
+// Updated WithoutDefaults type that extracts field types from VObject
 type WithoutDefaults<
-  Document extends GenericDocument,
   RegisteredService extends GenericRegisteredServiceDefinition
-> = {
-  [K in keyof Document]: K extends GetDefinedDefaultFields<
-    RegisteredService['$config']['state']['defaults']
-  >
-    ? never
-    : Document[K]
-}
-
-type GetDefinedDefaultFields<State extends DefaultsState> = {
-  [K in keyof State]: State[K] extends ValueOrFunctionFromValidator<any, any>
-    ? never
-    : State[K] extends undefined
-    ? never
-    : K
-}[keyof State]
+> = RegisteredService extends GenericRegisteredServiceDefinition
+  ? z.infer<RegisteredService['schemaWithoutDefaults']>
+  : never
 
 // Helper: Find the service that owns this table
 type GetServiceForTable<
@@ -69,17 +52,11 @@ interface DefaultsInsertOperations<
   Schema extends GenericServiceSchema
 > {
   one(
-    value: WithoutDefaults<
-      InsertValue<DataModel, TableName>,
-      GetServiceForTable<Schema, TableName>
-    >
+    value: WithoutDefaults<GetServiceForTable<Schema, TableName>>
   ): Promise<GenericId<TableName>>
 
   many(
-    values: WithoutDefaults<
-      InsertValue<DataModel, TableName>,
-      GetServiceForTable<Schema, TableName>
-    >[]
+    values: WithoutDefaults<GetServiceForTable<Schema, TableName>>[]
   ): Promise<GenericId<TableName>[]>
 }
 

@@ -10,12 +10,7 @@ export const myMutation = mutation({
   args: users.argsWithoutDefaults,
   handler: async (ctx, args) => {
     const userId = await ctx.db.insert('users').withDefaults().one({
-      age: 10,
-      name: 'John',
-      username: 'john123',
-      email: 'john@example.com',
-      isActive: true,
-      profileId: args.profileId,
+
     })
     return await ctx.db.get(userId)
   },
