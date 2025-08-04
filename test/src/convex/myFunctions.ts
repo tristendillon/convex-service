@@ -9,9 +9,12 @@ users.$config.state.defaults.age
 export const myMutation = mutation({
   args: users.argsWithoutDefaults,
   handler: async (ctx, args) => {
-    const userId = await ctx.db.insert('users').withDefaults().one({
-
-    })
+    const userId = await ctx.db
+      .insert('users')
+      .withDefaults(users.$config.state.defaults)
+      .one({
+        
+      })
     return await ctx.db.get(userId)
   },
 })

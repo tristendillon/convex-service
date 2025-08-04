@@ -301,9 +301,11 @@ export class ConvexService<
   }
 
   register(): GenericRegisteredServiceDefinition {
-    const argsWithoutDefaults = zodToConvex(
-      this.makeFieldsOptionalDirect(this._schema, this._state.defaults)
+    const schemaWithoutDefaults = this.makeFieldsOptionalDirect(
+      this._schema,
+      this._state.defaults
     )
+    const argsWithoutDefaults = zodToConvex(schemaWithoutDefaults)
     const registeredService: GenericRegisteredServiceDefinition = {
       $validatorJSON: (this.validator as any).json,
       $config: {
@@ -314,6 +316,7 @@ export class ConvexService<
       },
       tableName: this.tableName,
       schema: this.schema,
+      schemaWithoutDefaults: schemaWithoutDefaults,
       validator: this.validator,
       args: this._args,
       argsWithoutDefaults: argsWithoutDefaults,

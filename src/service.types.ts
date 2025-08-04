@@ -638,12 +638,11 @@ export interface RegisteredServiceDefinition<
   readonly $validatorJSON: ValidatorJSON
   readonly validator: DocumentType
   readonly schema: Intersection
+
   readonly schemaWithoutDefaults: MakeZodFieldsOptional<
     ZodSchema,
     State['defaults']
   >
-
-  // Expose configuration metadata (read-only)
   readonly args: Args
   readonly argsWithoutDefaults: ConvexValidatorFromZod<
     MakeZodFieldsOptional<ZodSchema, State['defaults']>

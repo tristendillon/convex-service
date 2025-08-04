@@ -3,22 +3,27 @@ import {
   DocumentByName,
   GenericDataModel,
   GenericDatabaseWriter,
+  GenericDocument,
   GenericMutationCtx,
   TableNamesInDataModel,
   WithoutSystemFields,
 } from 'convex/server'
 import { GenericId } from 'convex/values'
 import { GenericServiceSchema } from './schema.types'
-import { GenericRegisteredServiceDefinition } from './service.types'
-import z from 'zod'
+import {
+  DefaultsState,
+  GenericRegisteredServiceDefinition,
+} from './service.types'
+import { z } from 'zod'
 
-// Updated WithoutDefaults type that extracts field types from VObject
 type WithoutDefaults<
-  RegisteredService extends GenericRegisteredServiceDefinition
-> = RegisteredService extends GenericRegisteredServiceDefinition
-  ? z.infer<RegisteredService['schemaWithoutDefaults']>
-  : never
-
+  Document extends GenericDocument,
+  Defaults extends DefaultsState
+> = {
+  [K in keyof Document as K extends keyof Defaults ? never : K]: Document[K]
+} & {
+  [K in keyof Document as K extends keyof Defaults ? K : never]?: Document[K]
+}
 // Helper: Find the service that owns this table
 type GetServiceForTable<
   Schema extends GenericServiceSchema,
@@ -34,7 +39,6 @@ type InsertValue<
   TableName extends TableNamesInDataModel<DataModel>
 > = WithoutSystemFields<DocumentByName<DataModel, TableName>>
 
-// Base operations for regular inserts (full values required)
 interface BaseInsertOperations<
   DataModel extends GenericDataModel,
   TableName extends TableNamesInDataModel<DataModel>
@@ -49,39 +53,38 @@ interface BaseInsertOperations<
 interface DefaultsInsertOperations<
   DataModel extends GenericDataModel,
   TableName extends TableNamesInDataModel<DataModel>,
-  Schema extends GenericServiceSchema
+  Defaults extends DefaultsState
 > {
   one(
-    value: WithoutDefaults<GetServiceForTable<Schema, TableName>>
+    value: WithoutDefaults<InsertValue<DataModel, TableName>, Defaults>
   ): Promise<GenericId<TableName>>
 
   many(
-    values: WithoutDefaults<GetServiceForTable<Schema, TableName>>[]
+    values: WithoutDefaults<InsertValue<DataModel, TableName>, Defaults>[]
   ): Promise<GenericId<TableName>[]>
 }
 
 interface DatabaseInsertOperations<
   DataModel extends GenericDataModel,
-  TableName extends TableNamesInDataModel<DataModel>,
-  Schema extends GenericServiceSchema
+  TableName extends TableNamesInDataModel<DataModel>
 > extends BaseInsertOperations<DataModel, TableName> {
-  withDefaults(): DefaultsInsertOperations<DataModel, TableName, Schema>
+  withDefaults<Defaults extends DefaultsState>(
+    defaults: Defaults
+  ): DefaultsInsertOperations<DataModel, TableName, Defaults>
 }
 
-type EnhancedDatabaseWriter<
-  DataModel extends GenericDataModel,
-  Schema extends GenericServiceSchema
-> = GenericDatabaseWriter<DataModel> & {
-  insert<TableName extends TableNamesInDataModel<DataModel>>(
-    table: TableName
-  ): DatabaseInsertOperations<DataModel, TableName, Schema>
-}
+type EnhancedDatabaseWriter<DataModel extends GenericDataModel> =
+  GenericDatabaseWriter<DataModel> & {
+    insert<TableName extends TableNamesInDataModel<DataModel>>(
+      table: TableName
+    ): DatabaseInsertOperations<DataModel, TableName>
+  }
 
 type ServiceMutationCtx<
   DataModel extends GenericDataModel,
   Schema extends GenericServiceSchema
 > = GenericMutationCtx<DataModel> & {
-  db: EnhancedDatabaseWriter<DataModel, Schema>
+  db: EnhancedDatabaseWriter<DataModel>
 }
 
 export type ServiceMutation<
