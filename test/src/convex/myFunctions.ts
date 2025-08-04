@@ -1,4 +1,4 @@
-import { DataModel } from './_generated/dataModel'
+import { DataModel, Id } from './_generated/dataModel'
 import { ServiceSchema } from './schema'
 import { CreateServiceMutation } from 'convex-sql'
 
@@ -11,9 +11,9 @@ export const myMutation = mutation({
   handler: async (ctx, args) => {
     const userId = await ctx.db
       .insert('users')
-      .withDefaults(users.$config.state.defaults)
+      .withDefaults()
       .one({
-        
+
       })
     return await ctx.db.get(userId)
   },

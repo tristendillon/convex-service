@@ -8,31 +8,42 @@ import {
   TableNamesInDataModel,
   WithoutSystemFields,
 } from 'convex/server'
-import { GenericId } from 'convex/values'
+import { GenericId, GenericValidator, Validator } from 'convex/values'
 import { GenericServiceSchema } from './schema.types'
 import {
   DefaultsState,
   GenericRegisteredServiceDefinition,
 } from './service.types'
 import { z } from 'zod'
+import { BetterOmit } from 'convex-helpers'
+
+// Updated WithoutDefaults type that extracts field types from VObject
+
+type ExtractDocumentType<T extends GenericValidator> = T extends Validator<
+  infer DocType,
+  any,
+  any
+>
+  ? DocType
+  : never
 
 type WithoutDefaults<
-  Document extends GenericDocument,
-  Defaults extends DefaultsState
+  Document extends GenericValidator,
+  Defaults extends DefaultsState<Document>
 > = {
-  [K in keyof Document as K extends keyof Defaults ? never : K]: Document[K]
+  // Extract all fields from the validator's document type
+  [K in keyof ExtractDocumentType<Document> as K extends keyof Defaults
+    ? never
+    : K]: ExtractDocumentType<Document>[K]
 } & {
-  [K in keyof Document as K extends keyof Defaults ? K : never]?: Document[K]
+  // Add optional default fields that don't exist in the document
+  [K in Exclude<
+    keyof Defaults,
+    keyof ExtractDocumentType<Document>
+  >]?: Defaults[K] extends (...args: unknown[]) => unknown
+    ? ReturnType<Defaults[K]> | undefined
+    : Defaults[K] | undefined
 }
-// Helper: Find the service that owns this table
-type GetServiceForTable<
-  Schema extends GenericServiceSchema,
-  TableName extends string
-> = {
-  [ServiceKey in keyof Schema]: Schema[ServiceKey]['tableName'] extends TableName
-    ? Schema[ServiceKey]
-    : never
-}[keyof Schema]
 
 type InsertValue<
   DataModel extends GenericDataModel,
@@ -50,41 +61,55 @@ interface BaseInsertOperations<
   ): Promise<GenericId<TableName>[]>
 }
 
+type ServiceFromTableName<
+  Schema extends GenericServiceSchema,
+  TableName extends TableNamesInDataModel<GenericDataModel>
+> = {
+  [K in keyof Schema]: Schema[K]['tableName'] extends TableName
+    ? Schema[K]
+    : never
+}[keyof Schema]
+
 interface DefaultsInsertOperations<
-  DataModel extends GenericDataModel,
-  TableName extends TableNamesInDataModel<DataModel>,
-  Defaults extends DefaultsState
+  Schema extends GenericServiceSchema,
+  TableName extends TableNamesInDataModel<GenericDataModel>,
+  Service extends GenericRegisteredServiceDefinition = ServiceFromTableName<
+    Schema,
+    TableName
+  >,
+  Defaults extends DefaultsState = Service['$config']['state']['defaults']
 > {
   one(
-    value: WithoutDefaults<InsertValue<DataModel, TableName>, Defaults>
+    value: WithoutDefaults<Service['validator'], Defaults>
   ): Promise<GenericId<TableName>>
 
   many(
-    values: WithoutDefaults<InsertValue<DataModel, TableName>, Defaults>[]
+    values: WithoutDefaults<Service['validator'], Defaults>[]
   ): Promise<GenericId<TableName>[]>
 }
 
 interface DatabaseInsertOperations<
   DataModel extends GenericDataModel,
-  TableName extends TableNamesInDataModel<DataModel>
+  TableName extends TableNamesInDataModel<DataModel>,
+  Schema extends GenericServiceSchema
 > extends BaseInsertOperations<DataModel, TableName> {
-  withDefaults<Defaults extends DefaultsState>(
-    defaults: Defaults
-  ): DefaultsInsertOperations<DataModel, TableName, Defaults>
+  withDefaults(): DefaultsInsertOperations<Schema, TableName>
 }
 
-type EnhancedDatabaseWriter<DataModel extends GenericDataModel> =
-  GenericDatabaseWriter<DataModel> & {
-    insert<TableName extends TableNamesInDataModel<DataModel>>(
-      table: TableName
-    ): DatabaseInsertOperations<DataModel, TableName>
-  }
+type EnhancedDatabaseWriter<
+  DataModel extends GenericDataModel,
+  Schema extends GenericServiceSchema
+> = GenericDatabaseWriter<DataModel> & {
+  insert<TableName extends TableNamesInDataModel<DataModel>>(
+    table: TableName
+  ): DatabaseInsertOperations<DataModel, TableName, Schema>
+}
 
 type ServiceMutationCtx<
   DataModel extends GenericDataModel,
   Schema extends GenericServiceSchema
 > = GenericMutationCtx<DataModel> & {
-  db: EnhancedDatabaseWriter<DataModel>
+  db: EnhancedDatabaseWriter<DataModel, Schema>
 }
 
 export type ServiceMutation<
