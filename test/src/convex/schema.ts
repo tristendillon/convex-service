@@ -16,7 +16,7 @@ const ProfileService = defineService(
   .searchIndex('by_bio', { searchField: 'bio' })
   .validate()
 
-export const UserService = defineService(
+const UserService = defineService(
   z.object({
     username: z
       .string()
@@ -33,8 +33,6 @@ export const UserService = defineService(
   .name('users')
   .default('age', 18)
   .default('isActive', true)
-  .unique('username')
-  .unique('email')
   .unique(['email', 'username'], 'replace')
   .relation('profileId', 'profiles', 'cascade')
   .index('by_age', ['age'])

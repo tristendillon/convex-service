@@ -11,6 +11,7 @@ import {
   VectorIndexConfig,
   type GenericQueryCtx,
   IndexRange,
+  GenericMutationCtx,
 } from 'convex/server'
 import { z } from 'zod'
 import { zodToConvex, type Zid } from 'convex-helpers/server/zod'
@@ -241,10 +242,14 @@ export type BaseOnConflict = 'fail' | 'replace'
 
 export type UniqueConstraint<
   DocumentType extends GenericValidator = GenericValidator
-> = {
-  fields: UniqueField<DocumentType> | CompositeUniqueFields<DocumentType>
-  onConflict: BaseOnConflict
-}
+> =
+  | {
+      fields: UniqueField<DocumentType>
+    }
+  | {
+      fields: CompositeUniqueFields<DocumentType>
+      onConflict: BaseOnConflict
+    }
 type UniquesState<
   DocumentType extends GenericValidator = GenericValidator,
   IndexName extends string = string
@@ -253,7 +258,7 @@ type UniquesState<
 export type FunctionValidateConstraint<
   ZodSchema extends z.ZodTypeAny = z.ZodTypeAny
 > = (
-  ctx: GenericQueryCtx<GenericDataModel>,
+  ctx: GenericMutationCtx<GenericDataModel>,
   document: Expand<
     z.infer<ZodSchema> &
       SystemFieldsWithId<TableNamesInDataModel<GenericDataModel>>
@@ -601,7 +606,7 @@ export type GenericRegisteredServiceDefinition = RegisteredServiceDefinition<
 
 export type CreateWithoutSystemFields<DocumentType extends GenericValidator> =
   DocumentType extends VObject<any, infer Fields, any, any>
-    ? Omit<Fields, keyof SystemFields>
+    ? VObject<any, Omit<Fields, keyof SystemFields>, any>
     : never
 
 export type MakeZodFieldsOptional<

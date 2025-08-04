@@ -61,7 +61,7 @@ export class ConvexService<
     this._schema = zodSchema
     this._state = {
       defaults: {},
-      uniques: [],
+      uniques: {},
       validate: {},
       relations: {},
     } as unknown as State
@@ -252,8 +252,6 @@ export class ConvexService<
       ),
       documentType: (this.validator as any).json,
     }
-
-    console.log(tableDefinition)
     return tableDefinition
   }
 

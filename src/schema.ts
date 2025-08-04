@@ -6,33 +6,19 @@ import type {
   ServiceSchemaDefinitionInterface,
 } from './schema.types'
 
-// Temp until we have our functions mutations, queries, and crud functions.
-import {
-  internalMutationGeneric,
-  internalQueryGeneric,
-  queryGeneric,
-} from 'convex/server'
-import { crud } from 'convex-helpers/server/crud'
-import { CreateServiceMutation } from './mutation'
-
 export class ServiceSchemaDefinition<Schema extends GenericServiceSchema> {
   public services: Schema
 
   /**
    * @internal
    */
-  constructor(tables: Schema) {
-    this.services = tables
+  constructor(services: Schema) {
+    this.services = services
   }
 
   register(): RegisteredServiceSchemaDefinition<Schema> {
     return {
       services: this.services,
-      // mutation: CreateServiceMutation(this.services),
-      // query: queryGeneric,
-      // internalMutation: internalMutationGeneric,
-      // internalQuery: internalQueryGeneric,
-      // crud: crud,
     }
   }
 }
