@@ -5,9 +5,7 @@ export default defineConfig({
     environment: 'edge-runtime',
     server: { deps: { inline: ['convex-test'] } },
     browser: {
-      // provider: 'playwright', // or 'webdriverio'
-      enabled: true,
-      // at least one instance is required
+      enabled: !process.env.CI,
       instances: [{ browser: 'chromium' }],
     },
   },

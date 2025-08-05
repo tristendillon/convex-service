@@ -8,7 +8,7 @@
     "logs": "convex logs",
     "lint": "tsc -p convex && eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "test": "rm -rf node_modules/.vite && vitest",
-    "test:once": "rm -rf node_modules/.vite && vitest run",
+    "test:once": "rm -rf node_modules/.vite && vitest run --environment=node",
     "test:debug": "rm -rf node_modules/.vite && vitest --inspect-brk --no-file-parallelism",
     "test:coverage": "rm -rf node_modules/.vite && vitest run --coverage --coverage.reporter=text"
   },
