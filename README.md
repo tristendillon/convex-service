@@ -68,7 +68,7 @@ export const ServiceSchema = defineServiceSchema({
 ### 3. Create Service Mutation
 
 ```typescript
-// myFunctions.ts
+// mutation.ts
 import { ServiceSchema } from './schema'
 import { CreateServiceMutation } from 'convex-service'
 import { DataModel } from './_generated/dataModel'
@@ -80,6 +80,7 @@ const mutation = CreateServiceMutation<DataModel>(ServiceSchema.services)
 
 ```typescript
 import { ServiceSchema } from './schema'
+import { mutation } from './mutation.ts'
 
 const usersService = ServiceSchema.services.users
 
