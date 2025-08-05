@@ -85,7 +85,7 @@ import { mutation } from './mutation.ts'
 const usersService = ServiceSchema.services.users
 
 export const createUserWithDefaults = mutation({
-  args: users.argsWithoutDefaults,
+  args: usersService.argsWithoutDefaults,
   handler: async (ctx, args) => {
     const userId = await ctx.db
       .insert('users')
