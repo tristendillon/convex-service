@@ -92,7 +92,7 @@ export const createUserWithDefaults = mutation({
       .withDefaults()
       // we can use one or many and it will insert either one or an array of documents
       .one(args)
-      // Then we validate, this will run you validation that you defined in the service, be it a custom zod schema or a validation function. Learn more in the docs.
+      // Then we validate, this will run your validation that you defined in the service, be it a custom zod schema or a validation function. Learn more in the docs.
       .validate()
       // Then we execute the insert. this will actually insert the data in the db.
       .execute()
