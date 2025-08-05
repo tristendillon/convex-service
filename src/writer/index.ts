@@ -2,7 +2,7 @@ export { InsertOperationBuilder, BatchInsertOperationBuilder, InsertOperationIni
 export { ReplaceOperationBuilder, BatchReplaceOperationBuilder, ReplaceOperationInitializerImpl } from './replace'
 export { PatchOperationBuilder, BatchPatchOperationBuilder, PatchOperationInitializerImpl } from './patch'
 export { DeleteOperationInitializerImpl } from './delete'
-export { ServiceValidator } from './utils'
+export { ServiceValidator, RelationManager } from './utils'
 export { BaseOperationBuilder, BaseBatchOperationBuilder } from './base'
 
 // Re-export types for convenience

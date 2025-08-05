@@ -62,9 +62,14 @@ export type ServiceDatabaseWriter<
   ): PatchOperationInitializer<DataModel, TableName>
 
   /**
-   * Begin building delete operations.
+   * Begin building delete operations for the given table.
    *
+   * Delete operations support relational cascade management based on your service schema configuration.
+   *
+   * @param tableName - The name of the table to delete from.
    * @returns A {@link DeleteOperationInitializer} to build delete operations.
    */
-  delete(): DeleteOperationInitializer
+  delete<TableName extends TableNamesInDataModel<DataModel>>(
+    tableName: TableName
+  ): DeleteOperationInitializer<TableName>
 }

@@ -33,13 +33,16 @@ export class ServiceWriter {
         const validator = this.serviceValidator.createValidator(tableName)
         const defaultsApplier =
           this.serviceValidator.createDefaultsApplier(tableName)
+        const uniquenessValidator =
+          this.serviceValidator.createUniquenessValidator(tableName)
 
         // Create the initializer with defaults support
         const initializer = new InsertOperationInitializerImpl(
           tableName,
           this.ctx,
           validator,
-          defaultsApplier
+          defaultsApplier,
+          uniquenessValidator
         )
 
         return initializer
@@ -51,11 +54,15 @@ export class ServiceWriter {
         const validator = this.serviceValidator.createValidator(tableName)
         const defaultsApplier =
           this.serviceValidator.createDefaultsApplier(tableName)
+        const uniquenessValidator =
+          this.serviceValidator.createUniquenessValidator(tableName)
+
         return new ReplaceOperationInitializerImpl(
           this.ctx,
           tableName,
           validator,
-          defaultsApplier
+          defaultsApplier,
+          uniquenessValidator
         )
       },
 
@@ -63,10 +70,25 @@ export class ServiceWriter {
         tableName: TableName
       ) => {
         const validator = this.serviceValidator.createValidator(tableName)
-        return new PatchOperationInitializerImpl(this.ctx, tableName, validator)
+        const uniquenessValidator =
+          this.serviceValidator.createUniquenessValidator(tableName)
+
+        return new PatchOperationInitializerImpl(
+          this.ctx,
+          tableName,
+          validator,
+          uniquenessValidator
+        )
       },
 
-      delete: () => new DeleteOperationInitializerImpl(this.ctx),
+      delete: <TableName extends TableNamesInDataModel<GenericDataModel>>(
+        tableName: TableName
+      ) =>
+        new DeleteOperationInitializerImpl(
+          this.ctx,
+          tableName,
+          this.serviceValidator.schema
+        ),
     } as unknown as ServiceDatabaseWriter<
       GenericDataModel,
       GenericServiceSchema

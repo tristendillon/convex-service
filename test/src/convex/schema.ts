@@ -22,7 +22,7 @@ const UserService = defineService(
       .string()
       .min(3, 'Username must be at least 3 characters')
       .max(12, 'Username must be at most 12 characters'),
-    name: z.string(),
+    name: z.string().min(3, 'Name must be at least 3 characters'),
     email: z.string().email('Invalid email address'),
     age: z.number().min(18, 'Age must be at least 18'),
     isActive: z.boolean(),
@@ -33,7 +33,7 @@ const UserService = defineService(
   .name('users')
   .default('age', 18)
   .default('isActive', true)
-  .unique(['email', 'username'], 'replace')
+  .unique(['email', 'username'], 'fail')
   .relation('profileId', 'profiles', 'cascade')
   .index('by_age', ['age'])
   .index('by_active_age', ['isActive', 'age'])

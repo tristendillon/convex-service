@@ -6,7 +6,7 @@ import {
 } from 'convex/server'
 import { GenericId } from 'convex/values'
 import { BaseOperationBuilder, BaseBatchOperationBuilder } from './base'
-import { ValidatorFunction } from './base.types'
+import { ValidatorFunction, UniquenessValidatorFunction } from './base.types'
 import { ReplaceOperationInitializer } from './replace.types'
 import { GenericServiceSchema } from '../schema.types'
 
@@ -15,9 +15,10 @@ export class BatchReplaceOperationBuilder<TReturn> extends BaseBatchOperationBui
     tableName: string,
     private replacements: Array<{ id: GenericId<any>; value: GenericDocument }>,
     ctx: GenericMutationCtx<GenericDataModel>,
-    validator?: ValidatorFunction
+    validator?: ValidatorFunction,
+    uniquenessValidator?: UniquenessValidatorFunction
   ) {
-    super(tableName, ctx, validator)
+    super(tableName, ctx, validator, uniquenessValidator)
   }
 
   protected async performBatchValidation(): Promise<void> {
@@ -25,6 +26,16 @@ export class BatchReplaceOperationBuilder<TReturn> extends BaseBatchOperationBui
       await Promise.all(
         this.replacements.map(({ value }) =>
           this.validator!(this.ctx, this.tableName, value)
+        )
+      )
+    }
+  }
+
+  protected async performBatchUniquenessValidation(): Promise<void> {
+    if (this.uniquenessValidator) {
+      await Promise.all(
+        this.replacements.map(({ id, value }) =>
+          this.uniquenessValidator!(this.ctx, this.tableName, value, 'replace', id)
         )
       )
     }
@@ -44,14 +55,21 @@ export class ReplaceOperationBuilder<TReturn> extends BaseOperationBuilder<TRetu
     private id: GenericId<any>,
     private value: GenericDocument,
     ctx: GenericMutationCtx<GenericDataModel>,
-    validator?: ValidatorFunction
+    validator?: ValidatorFunction,
+    uniquenessValidator?: UniquenessValidatorFunction
   ) {
-    super(tableName, ctx, validator)
+    super(tableName, ctx, validator, uniquenessValidator)
   }
 
   protected async performValidation(): Promise<void> {
     if (this.validator) {
       await this.validator(this.ctx, this.tableName, this.value)
+    }
+  }
+
+  protected async performUniquenessValidation(): Promise<void> {
+    if (this.uniquenessValidator) {
+      await this.uniquenessValidator(this.ctx, this.tableName, this.value, 'replace', this.id)
     }
   }
 
@@ -70,7 +88,8 @@ export class ReplaceOperationInitializerImpl<
     private ctx: GenericMutationCtx<GenericDataModel>,
     private tableName: TableName,
     private validator?: ValidatorFunction,
-    private defaultsApplier?: (value: GenericDocument) => GenericDocument
+    private defaultsApplier?: (value: GenericDocument) => GenericDocument,
+    private uniquenessValidator?: UniquenessValidatorFunction
   ) {}
 
   one = <Id extends GenericId<string>>(
@@ -82,7 +101,8 @@ export class ReplaceOperationInitializerImpl<
       id,
       value,
       this.ctx,
-      this.validator
+      this.validator,
+      this.uniquenessValidator
     )
   }
 
@@ -93,7 +113,8 @@ export class ReplaceOperationInitializerImpl<
       this.tableName,
       replacements,
       this.ctx,
-      this.validator
+      this.validator,
+      this.uniquenessValidator
     )
   }
 

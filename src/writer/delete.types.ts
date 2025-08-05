@@ -1,3 +1,4 @@
+import { GenericDataModel, TableNamesInDataModel } from 'convex/server'
 import { GenericId } from 'convex/values'
 
 // ============================================================================
@@ -9,14 +10,16 @@ import { GenericId } from 'convex/values'
  *
  * @public
  */
-export interface DeleteOneOperation {
+export interface DeleteOneOperation<
+  TableName extends TableNamesInDataModel<GenericDataModel>
+> {
   /**
    * Delete a single document by ID.
    *
    * @param id - The ID of the document to delete.
    * @returns A promise that resolves to the deleted document's ID.
    */
-  <Id extends GenericId<string>>(id: Id): Promise<Id>
+  <Id extends GenericId<TableName>>(id: Id): Promise<Id>
 }
 
 /**
@@ -24,14 +27,16 @@ export interface DeleteOneOperation {
  *
  * @public
  */
-export interface DeleteManyOperation {
+export interface DeleteManyOperation<
+  TableName extends TableNamesInDataModel<GenericDataModel>
+> {
   /**
    * Delete multiple documents by ID.
    *
    * @param ids - Array of document IDs to delete.
    * @returns A promise that resolves to the array of deleted document IDs.
    */
-  <Id extends GenericId<string>>(ids: Id[]): Promise<Id[]>
+  <Id extends GenericId<TableName>>(ids: Id[]): Promise<Id[]>
 }
 
 /**
@@ -39,13 +44,15 @@ export interface DeleteManyOperation {
  *
  * @public
  */
-export interface DeleteOperationInitializer {
+export interface DeleteOperationInitializer<
+  TableName extends TableNamesInDataModel<GenericDataModel>
+> {
   /**
    * Delete a single document.
    */
-  one: DeleteOneOperation
+  one: DeleteOneOperation<TableName>
   /**
    * Delete multiple documents.
    */
-  many: DeleteManyOperation
+  many: DeleteManyOperation<TableName>
 }

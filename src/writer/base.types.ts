@@ -3,6 +3,7 @@ import {
   GenericDocument,
   GenericMutationCtx,
 } from 'convex/server'
+import { GenericId } from 'convex/values'
 
 // ============================================================================
 // Core Operation Abstractions
@@ -50,3 +51,20 @@ export type ValidatorFunction = (
   tableName: string,
   value: GenericDocument
 ) => Promise<void>
+
+// ============================================================================
+// Uniqueness Validation Types
+// ============================================================================
+
+export type UniquenessValidationResult = {
+  action: 'proceed' | 'replace'
+  replaceId?: GenericId<string>
+}
+
+export type UniquenessValidatorFunction = (
+  ctx: GenericMutationCtx<GenericDataModel>,
+  tableName: string,
+  value: GenericDocument,
+  operation: 'insert' | 'replace' | 'patch',
+  currentId?: GenericId<string>
+) => Promise<UniquenessValidationResult>

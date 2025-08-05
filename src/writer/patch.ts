@@ -5,17 +5,19 @@ import {
 } from 'convex/server'
 import { GenericId } from 'convex/values'
 import { BaseOperationBuilder, BaseBatchOperationBuilder } from './base'
-import { ValidatorFunction } from './base.types'
+import { ValidatorFunction, UniquenessValidatorFunction } from './base.types'
 import { PatchOperationInitializer } from './patch.types'
+import { DocumentNotFoundError } from '../errors'
 
 export class BatchPatchOperationBuilder<TReturn> extends BaseBatchOperationBuilder<TReturn> {
   constructor(
     tableName: string,
     private patches: Array<{ id: GenericId<any>; value: Record<string, any> }>,
     ctx: GenericMutationCtx<GenericDataModel>,
-    validator?: ValidatorFunction
+    validator?: ValidatorFunction,
+    uniquenessValidator?: UniquenessValidatorFunction
   ) {
-    super(tableName, ctx, validator)
+    super(tableName, ctx, validator, uniquenessValidator)
   }
 
   protected async performBatchValidation(): Promise<void> {
@@ -24,13 +26,31 @@ export class BatchPatchOperationBuilder<TReturn> extends BaseBatchOperationBuild
         this.patches.map(async ({ id, value }) => {
           const document = await this.ctx.db.get(id)
           if (!document) {
-            throw new Error(`Document ${id} not found`)
+            throw new DocumentNotFoundError(this.tableName, id as string, 'patch')
           }
           const documentWithPatch = {
             ...document,
             ...value,
           }
           await this.validator!(this.ctx, this.tableName, documentWithPatch)
+        })
+      )
+    }
+  }
+
+  protected async performBatchUniquenessValidation(): Promise<void> {
+    if (this.uniquenessValidator) {
+      await Promise.all(
+        this.patches.map(async ({ id, value }) => {
+          const document = await this.ctx.db.get(id)
+          if (!document) {
+            throw new DocumentNotFoundError(this.tableName, id as string, 'patch')
+          }
+          const documentWithPatch = {
+            ...document,
+            ...value,
+          }
+          await this.uniquenessValidator!(this.ctx, this.tableName, documentWithPatch, 'patch', id)
         })
       )
     }
@@ -50,22 +70,37 @@ export class PatchOperationBuilder<TReturn> extends BaseOperationBuilder<TReturn
     private id: GenericId<any>,
     private value: Record<string, any>,
     ctx: GenericMutationCtx<GenericDataModel>,
-    validator?: ValidatorFunction
+    validator?: ValidatorFunction,
+    uniquenessValidator?: UniquenessValidatorFunction
   ) {
-    super(tableName, ctx, validator)
+    super(tableName, ctx, validator, uniquenessValidator)
   }
 
   protected async performValidation(): Promise<void> {
     if (this.validator) {
       const document = await this.ctx.db.get(this.id)
       if (!document) {
-        throw new Error(`Document ${this.id} not found`)
+        throw new DocumentNotFoundError(this.tableName, this.id as string, 'patch')
       }
       const documentWithPatch = {
         ...document,
         ...this.value,
       }
       await this.validator(this.ctx, this.tableName, documentWithPatch)
+    }
+  }
+
+  protected async performUniquenessValidation(): Promise<void> {
+    if (this.uniquenessValidator) {
+      const document = await this.ctx.db.get(this.id)
+      if (!document) {
+        throw new DocumentNotFoundError(this.tableName, this.id as string, 'patch')
+      }
+      const documentWithPatch = {
+        ...document,
+        ...this.value,
+      }
+      await this.uniquenessValidator(this.ctx, this.tableName, documentWithPatch, 'patch', this.id)
     }
   }
 
@@ -82,7 +117,8 @@ export class PatchOperationInitializerImpl<
   constructor(
     private ctx: GenericMutationCtx<GenericDataModel>,
     private tableName: TableName,
-    private validator?: ValidatorFunction
+    private validator?: ValidatorFunction,
+    private uniquenessValidator?: UniquenessValidatorFunction
   ) {}
 
   one = <Id extends GenericId<string>>(
@@ -94,7 +130,8 @@ export class PatchOperationInitializerImpl<
       id,
       value,
       this.ctx,
-      this.validator
+      this.validator,
+      this.uniquenessValidator
     )
   }
 
@@ -105,7 +142,8 @@ export class PatchOperationInitializerImpl<
       this.tableName,
       patches,
       this.ctx,
-      this.validator
+      this.validator,
+      this.uniquenessValidator
     )
   }
 }
