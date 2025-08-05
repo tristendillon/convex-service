@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { posts } from '../convex/schema'
+import { ServiceSchema } from '../convex/schema'
+
+const posts = ServiceSchema.services.posts
 
 describe('Post Service API Tests', () => {
   it('should have correct table name', () => {

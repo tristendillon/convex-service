@@ -33,7 +33,7 @@ const UserService = defineService(
   .name('users')
   .default('age', 18)
   .default('isActive', true)
-  .unique(['email', 'username'], 'fail')
+  .unique(['email', 'username'], 'replace')
   .relation('profileId', 'profiles', 'cascade')
   .index('by_age', ['age'])
   .index('by_active_age', ['isActive', 'age'])
@@ -131,13 +131,7 @@ export const ServiceSchema = defineServiceSchema({
   categories: CategoryService.register(),
   comments: CommentService.register(),
   tags: TagService.register(),
-})
-  // other schema builders
-  .register()
-
-// export const {
-//   services: { profiles, users, posts, categories, comments, tags },
-// } = ServiceSchema
+}).register()
 
 export default defineSchema({
   profiles: ProfileService,

@@ -180,3 +180,13 @@ export const deleteUsers = mutation({
     return userIds
   },
 })
+
+export const deleteProfile = mutation({
+  args: {
+    id: v.id('profiles'),
+  },
+  handler: async (ctx, args) => {
+    const profileId = await ctx.db.delete('profiles').one(args.id)
+    return profileId
+  },
+})

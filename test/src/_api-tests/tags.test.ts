@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { tags } from '../convex/schema'
+import { ServiceSchema } from '../convex/schema'
+
+const tags = ServiceSchema.services.tags
 
 describe('Tag Service API Tests', () => {
   it('should have correct table name', () => {

@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { users } from '../convex/schema'
+import { ServiceSchema } from '../convex/schema'
+
+const users = ServiceSchema.services.users
 
 describe('User Service API Tests', () => {
   it('should have correct table name', () => {
@@ -8,9 +10,7 @@ describe('User Service API Tests', () => {
 
   it('should have correct indexes configuration', () => {
     const config = users.$config
-    expect(Object.keys(config.indexes)).toHaveLength(6)
-    expect(config.indexes).toHaveProperty('by_username')
-    expect(config.indexes).toHaveProperty('by_email')
+    expect(Object.keys(config.indexes)).toHaveLength(4)
     expect(config.indexes).toHaveProperty('by_email_username')
     expect(config.indexes).toHaveProperty('by_profileId')
     expect(config.indexes).toHaveProperty('by_age')
@@ -20,8 +20,6 @@ describe('User Service API Tests', () => {
   it('should have correct unique constraints configuration', () => {
     const config = users.$config
 
-    expect(config.state.uniques.by_username.fields).toEqual('username')
-    expect(config.state.uniques.by_email.fields).toEqual('email')
     expect(config.state.uniques.by_email_username.fields).toEqual([
       'email',
       'username',

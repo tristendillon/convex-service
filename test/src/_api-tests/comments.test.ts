@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { comments } from '../convex/schema'
+import { ServiceSchema } from '../convex/schema'
+
+const comments = ServiceSchema.services.comments
 
 describe('Comment Service API Tests', () => {
   it('should have correct table name', () => {
@@ -54,7 +56,7 @@ describe('Comment Service API Tests', () => {
 
   it('should have no unique constraints', () => {
     const config = comments.$config
-    expect(config.state.uniques).toHaveLength(0)
+    expect(config.state.uniques).toEqual({})
   })
 
   it('should have no search indexes', () => {

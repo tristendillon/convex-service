@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { profiles } from '../convex/schema'
+import { ServiceSchema } from '../convex/schema'
+
+const profiles = ServiceSchema.services.profiles
 
 describe('Profile Service API Tests', () => {
   it('should have correct table name', () => {
@@ -29,7 +31,7 @@ describe('Profile Service API Tests', () => {
     const config = profiles.$config
 
     expect(config.state.defaults).toEqual({})
-    expect(config.state.uniques).toEqual([])
+    expect(config.state.uniques).toEqual({})
     expect(config.state.relations).toEqual({})
   })
 
