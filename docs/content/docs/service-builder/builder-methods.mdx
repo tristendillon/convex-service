@@ -211,12 +211,12 @@ const UserService = defineService(baseSchema)
 // Custom validation function
 const UserService = defineService(schema)
   .name('users')
-  .validate(async (ctx, tableName, data) => {
+  .validate(async (ctx, doc) => {
     // Custom validation logic
     if (
       await ctx.db
         .query('users')
-        .filter((q) => q.eq(q.field('email'), data.email))
+        .filter((q) => q.eq(q.field('email'), doc.email))
         .first()
     ) {
       throw new Error('Email already exists')
