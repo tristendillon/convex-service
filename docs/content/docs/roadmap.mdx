@@ -336,30 +336,6 @@ Please:
 
 ---
 
-## 📋 Current Limitations
-
-While these features are planned, here are current workarounds:
-
-### Dynamic Defaults Workaround
-
-```typescript
-// Current workaround for dynamic defaults
-export const createUser = mutation({
-  args: UserService.argsWithoutDefaults, // Use partial args
-  handler: async (ctx, args) => {
-    const userData = {
-      ...args,
-      displayName: args.displayName || `${args.firstName} ${args.lastName}`,
-      username: args.username || args.email.split('@')[0],
-    }
-
-    return await ctx.db.insert('users').one(userData).validate().execute()
-  },
-})
-```
-
-## Next Steps
-
 <Cards>
   <Card
     title="Getting Started"
@@ -382,3 +358,21 @@ export const createUser = mutation({
     href="https://github.com/tristendillon/convex-service/discussions"
   />
 </Cards>
+
+### Dynamic Defaults Workaround
+
+```typescript
+// Current workaround for dynamic defaults
+export const createUser = mutation({
+  args: UserService.argsWithoutDefaults, // Use partial args
+  handler: async (ctx, args) => {
+    const userData = {
+      ...args,
+      displayName: args.displayName || `${args.firstName} ${args.lastName}`,
+      username: args.username || args.email.split('@')[0],
+    }
+
+    return await ctx.db.insert('users').one(userData).validate().execute()
+  },
+})
+```

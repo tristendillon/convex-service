@@ -1,0 +1,328 @@
+---
+title: AI Reference
+description: Reference the convex-service api in an LLM
+---
+
+# Convex Service - Complete API Reference for AI Assistants
+
+This comprehensive reference provides all the information needed to understand and work with the `convex-service` package, designed for AI assistants to quickly grasp the API structure and usage patterns.
+
+## Package Overview
+
+`convex-service` is a TypeScript package that wraps Convex schemas with Zod integration, providing type-safe database operations with advanced features like validation, unique constraints, relations, and default values.
+
+**Core Dependencies:**
+
+- `convex`: ^1.14.0
+- `convex-helpers`: ^0.1.54
+- `zod`: ^3.23.8
+
+## Design Principles
+
+1. **Type Safety**: Full TypeScript support with runtime validation
+2. **Builder Pattern**: Fluent API for defining services and operations
+3. **Validation First**: Zod schemas for runtime validation
+4. **Convex Integration**: Seamless integration with Convex database
+5. **Error Handling**: Comprehensive error types with detailed messages
+6. **Relations**: Support for foreign key relationships with cascading actions
+
+## Complete API Reference
+
+### Core Exports
+
+```typescript
+// Main exports from 'convex-service'
+export { defineService } from './service'
+export { defineServiceSchema } from './schema'
+export { CreateServiceMutation } from './mutation'
+
+// Error classes
+export {
+  ConvexSQLError,
+  ValidationError,
+  UniqueConstraintError,
+  DocumentNotFoundError,
+} from './errors'
+```
+
+### 1. defineService(zodSchema)
+
+Creates a service definition with a fluent builder API.
+
+**Parameters:**
+
+- `zodSchema`: Any Zod schema defining the document structure
+
+**Returns:** `ConvexServiceInterface` with builder methods
+
+**Builder Methods:**
+
+#### .name(tableName: string)
+
+Sets the table name for the service.
+
+```typescript
+const UserService = defineService(
+  z.object({
+    username: z.string(),
+    email: z.string().email(),
+  })
+).name('users')
+```
+
+#### .default(field: string, value: any | function)
+
+Sets default values for fields.
+
+```typescript
+.default('isActive', true)
+.default('createdAt', () => Date.now())
+```
+
+#### .unique(field: string | string[], onConflict?: 'fail' | 'replace')
+
+Defines unique constraints on single or multiple fields.
+
+```typescript
+.unique('email')  // Single field
+.unique(['username', 'email'], 'replace')  // Composite unique
+```
+
+#### .relation(field: string, table: string, onDelete: 'cascade' | 'fail' | 'setOptional')
+
+Defines foreign key relationships.
+
+```typescript
+.relation('profileId', 'profiles', 'cascade')
+```
+
+#### .index(name: string, fields: string[])
+
+Creates database indexes.
+
+```typescript
+.index('by_age', ['age'])
+.index('by_active_age', ['isActive', 'age'])
+```
+
+#### .searchIndex(name: string, config: SearchIndexConfig)
+
+Creates search indexes for full-text search.
+
+```typescript
+.searchIndex('by_name_username', {
+  searchField: 'name',
+  filterFields: ['isActive']
+})
+```
+
+#### .vectorIndex(name: string, config: VectorIndexConfig)
+
+Creates vector indexes for AI/ML applications.
+
+```typescript
+.vectorIndex('by_embedding', {
+  vectorField: 'embedding',
+  dimensions: 1536,
+  filterFields: ['category']
+})
+```
+
+#### .validate(schema?: ZodSchema | function)
+
+Adds custom validation logic.
+
+```typescript
+.validate()  // Uses service schema
+.validate(customZodSchema)  // Custom schema
+// ctx is Convex's query ctx
+// doc is the document before its validation, so the data before insert, update, replace.
+.validate((ctx, doc) => { /* custom logic */ })  // Custom function
+```
+
+### 2. defineServiceSchema(services)
+
+Creates a schema definition containing multiple services.
+
+```typescript
+const ServiceSchema = defineServiceSchema({
+  users: UserService.register(),
+  profiles: ProfileService.register(),
+  posts: PostService.register(),
+})
+```
+
+**Methods:**
+
+- `.register()`: Registers the schema for use in mutations
+
+### 3. CreateServiceMutation(services)
+
+Creates a mutation wrapper with enhanced database operations.
+
+```typescript
+const mutation = CreateServiceMutation<DataModel>(ServiceSchema.services)
+
+export const createUser = mutation({
+  args: usersService.argsWithoutDefaults,
+  handler: async (ctx, args) => {
+    // Enhanced ctx.db with service methods
+  },
+})
+```
+
+## Enhanced Database Operations
+
+The mutation wrapper provides enhanced database operations:
+
+### Insert Operations
+
+```typescript
+// Basic insert
+const userId = await ctx.db.insert('users').one(userData).validate().execute()
+
+// Insert with defaults
+const userId = await ctx.db
+  .insert('users')
+  .withDefaults()
+  .one(userData)
+  .validate()
+  .execute()
+
+// Bulk insert
+const userIds = await ctx.db
+  .insert('users')
+  .many([user1, user2, user3])
+  .validate()
+  .execute()
+```
+
+### Replace Operations
+
+```typescript
+const userId = await ctx.db
+  .replace('users')
+  .withDefaults()
+  .one(id, newUserData)
+  .validate()
+  .execute()
+```
+
+### Patch Operations
+
+```typescript
+const userId = await ctx.db
+  .patch('users')
+  .one(id, partialUpdates)
+  .validate()
+  .execute()
+```
+
+### Delete Operations
+
+```typescript
+// Simple delete
+await ctx.db.delete('users').one(id).execute()
+```
+
+## Service Properties
+
+Each registered service provides the following properties:
+
+```typescript
+const service = ServiceSchema.services.users
+
+// Available properties:
+service.tableName // 'users'
+service.schema // Full Zod schema with system fields
+service.schemaWithoutDefaults // Schema with defaults as optional
+service.validator // Convex validator
+service.args // Full args validator
+service.argsWithoutDefaults // Args without defaults
+```
+
+## Complete Usage Example
+
+```typescript
+// 1. Define services
+import { defineService } from 'convex-service'
+import { z } from 'zod'
+import { zid } from 'convex-helpers/server/zod'
+
+const UserService = defineService(
+  z.object({
+    username: z.string().min(3).max(12),
+    name: z.string().min(3),
+    email: z.string().email(),
+    age: z.number().min(18),
+    isActive: z.boolean(),
+    profileId: zid('profiles'),
+    metadata: z.record(z.string(), z.any()).optional(),
+  })
+)
+  .name('users')
+  .default('age', 18)
+  .default('isActive', true)
+  .unique(['email', 'username'], 'replace')
+  .relation('profileId', 'profiles', 'cascade')
+  .index('by_age', ['age'])
+  .index('by_active_age', ['isActive', 'age'])
+  .searchIndex('by_name_username', {
+    searchField: 'name',
+    filterFields: ['isActive'],
+  })
+  .validate()
+
+// 2. Create schema
+import { defineServiceSchema } from 'convex-service'
+
+export const ServiceSchema = defineServiceSchema({
+  users: UserService.register(),
+}).register()
+
+// 3. Create mutations
+import { CreateServiceMutation } from 'convex-service'
+import { DataModel } from './_generated/dataModel'
+
+const mutation = CreateServiceMutation<DataModel>(ServiceSchema.services)
+
+// 4. Use in mutations
+export const createUser = mutation({
+  args: ServiceSchema.services.users.argsWithoutDefaults,
+  handler: async (ctx, args) => {
+    const userId = await ctx.db
+      .insert('users')
+      .withDefaults()
+      .one(args)
+      .validate()
+      .execute()
+
+    return userId
+  },
+})
+
+export const updateUser = mutation({
+  args: {
+    id: v.id('users'),
+    updates: ServiceSchema.services.users.schemaWithoutDefaults,
+  },
+  handler: async (ctx, { id, updates }) => {
+    return await ctx.db.patch('users').one(id, updates).validate().execute()
+  },
+})
+```
+
+## Key Features Summary
+
+1. **Type-Safe Operations**: Full TypeScript support with runtime validation
+2. **Fluent Builder API**: Chainable methods for defining services and operations
+3. **Default Values**: Support for static values and computed functions
+4. **Unique Constraints**: Single and composite field uniqueness with conflict resolution
+5. **Relations**: Foreign key relationships with cascading delete options
+6. **Indexing**: Regular, search, and vector indexes
+7. **Validation**: Zod schema validation with custom validation functions
+8. **Error Handling**: Comprehensive error types with detailed messages
+9. **Batch Operations**: Support for bulk inserts, updates, and deletes
+10. **Conditional Operations**: Query-based operations with filtering
+
+This API provides a complete abstraction over Convex database operations while maintaining type safety and providing advanced database features typically found in traditional SQL databases.

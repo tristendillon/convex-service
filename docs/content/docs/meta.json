@@ -1,12 +1,13 @@
 {
   "title": "Convex Service",
   "pages": [
-    "index",
+    "home",
     "getting-started",
     "service-builder",
     "database-operations",
     "advanced",
     "api-reference",
-    "roadmap"
+    "roadmap",
+    "ai-api-reference"
   ]
 }

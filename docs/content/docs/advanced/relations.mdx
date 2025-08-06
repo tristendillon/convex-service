@@ -25,12 +25,12 @@ const PostService = defineService(
   z.object({
     title: z.string(),
     content: z.string(),
-    authorId: zid('users'),  // Foreign key to users table
+    authorId: zid('users'), // Foreign key to users table
   })
 )
-.name('posts')
-.relation('authorId', 'users', 'cascade')  // Define the relationship
-.index('by_author', ['authorId'])           // Index automatically created
+  .name('posts')
+  .relation('authorId', 'users', 'cascade') // Define the relationship
+  .index('by_author', ['authorId']) // Index automatically created
 ```
 
 > **Example**: Complete relation setup in [`test/src/convex/schema.ts:61-63`](https://github.com/tristendillon/convex-service/blob/main/test/src/convex/schema.ts#L61-L63)
@@ -54,15 +54,16 @@ When the parent record is deleted, all related child records are automatically d
 ```typescript
 const PostService = defineService(postSchema)
   .name('posts')
-  .relation('authorId', 'users', 'cascade')  // Delete posts when user deleted
+  .relation('authorId', 'users', 'cascade') // Delete posts when user deleted
 
 const CommentService = defineService(commentSchema)
   .name('comments')
-  .relation('postId', 'posts', 'cascade')    // Delete comments when post deleted
-  .relation('authorId', 'users', 'cascade')  // Delete comments when user deleted
+  .relation('postId', 'posts', 'cascade') // Delete comments when post deleted
+  .relation('authorId', 'users', 'cascade') // Delete comments when user deleted
 ```
 
 **Cascade Example**:
+
 ```typescript
 // When you delete a user...
 await ctx.db.delete('users').one(userId)
@@ -78,15 +79,15 @@ await ctx.db.delete('users').one(userId)
 Prevents deletion of the parent record if child records exist:
 
 ```typescript
-const CategoryService = defineService(categorySchema)
-  .name('categories')
+const CategoryService = defineService(categorySchema).name('categories')
 
 const PostService = defineService(postSchema)
   .name('posts')
-  .relation('categoryId', 'categories', 'fail')  // Prevent category deletion
+  .relation('categoryId', 'categories', 'fail') // Prevent category deletion
 ```
 
 **Fail Example**:
+
 ```typescript
 // This will fail if any posts use this category
 try {
@@ -110,10 +111,10 @@ const PostService = defineService(
     tags: z.array(zid('tags')),
   })
 )
-.name('posts')
-.relation('authorId', 'users', 'cascade')      // Delete posts when user deleted
-.relation('categoryId', 'categories', 'fail')  // Prevent category deletion if posts exist
-.relation('tags', 'tags', 'cascade')           // Handle tag array relations
+  .name('posts')
+  .relation('authorId', 'users', 'cascade') // Delete posts when user deleted
+  .relation('categoryId', 'categories', 'fail') // Prevent category deletion if posts exist
+  .relation('tags', 'tags', 'cascade') // Handle tag array relations
 ```
 
 ## Self-Referential Relations
@@ -124,16 +125,17 @@ Tables can reference themselves for hierarchical data:
 const CategoryService = defineService(
   z.object({
     name: z.string(),
-    parentId: zid('categories').optional(),  // Self-reference
+    parentId: zid('categories').optional(), // Self-reference
   })
 )
-.name('categories')
-.relation('parentId', 'categories', 'cascade')  // Delete children when parent deleted
+  .name('categories')
+  .relation('parentId', 'categories', 'cascade') // Delete children when parent deleted
 ```
 
 > **Example**: Self-referential relation in [`test/src/convex/schema.ts:90`](https://github.com/tristendillon/convex-service/blob/main/test/src/convex/schema.ts#L90)
 
 **Hierarchical Example**:
+
 ```typescript
 // Category structure:
 // Electronics (id: cat1)
@@ -179,12 +181,12 @@ const PostTagService = defineService(
     tagId: zid('tags'),
   })
 )
-.name('post_tags')
-.relation('postId', 'posts', 'cascade')    // Delete when post deleted
-.relation('tagId', 'tags', 'cascade')      // Delete when tag deleted
-.unique(['postId', 'tagId'])               // Prevent duplicates
-.index('by_post', ['postId'])
-.index('by_tag', ['tagId'])
+  .name('post_tags')
+  .relation('postId', 'posts', 'cascade') // Delete when post deleted
+  .relation('tagId', 'tags', 'cascade') // Delete when tag deleted
+  .unique(['postId', 'tagId']) // Prevent duplicates
+  .index('by_post', ['postId'])
+  .index('by_tag', ['tagId'])
 ```
 
 ### Polymorphic Relations
@@ -197,35 +199,35 @@ const CommentService = defineService(
     content: z.string(),
     authorId: zid('users'),
     // Polymorphic relation - can comment on posts or other entities
-    entityId: z.string(),  // ID of the entity being commented on
+    entityId: z.string(), // ID of the entity being commented on
     entityType: z.enum(['post', 'user', 'product']),
   })
 )
-.name('comments')
-.relation('authorId', 'users', 'cascade')
-.index('by_entity', ['entityId', 'entityType'])
+  .name('comments')
+  .relation('authorId', 'users', 'cascade')
+  .index('by_entity', ['entityId', 'entityType'])
 
-// Custom validation for polymorphic relations
-.validate(async (ctx, doc) => {
-  // Validate that the entity exists based on type
-  let entityExists = false
+  // Custom validation for polymorphic relations
+  .validate(async (ctx, doc) => {
+    // Validate that the entity exists based on type
+    let entityExists = false
 
-  switch (doc.entityType) {
-    case 'post':
-      entityExists = !!(await ctx.db.get(doc.entityId as Id<'posts'>))
-      break
-    case 'user':
-      entityExists = !!(await ctx.db.get(doc.entityId as Id<'users'>))
-      break
-    case 'product':
-      entityExists = !!(await ctx.db.get(doc.entityId as Id<'products'>))
-      break
-  }
+    switch (doc.entityType) {
+      case 'post':
+        entityExists = !!(await ctx.db.get(doc.entityId as Id<'posts'>))
+        break
+      case 'user':
+        entityExists = !!(await ctx.db.get(doc.entityId as Id<'users'>))
+        break
+      case 'product':
+        entityExists = !!(await ctx.db.get(doc.entityId as Id<'products'>))
+        break
+    }
 
-  if (!entityExists) {
-    throw new Error(`${doc.entityType} with ID ${doc.entityId} not found`)
-  }
-})
+    if (!entityExists) {
+      throw new Error(`${doc.entityType} with ID ${doc.entityId} not found`)
+    }
+  })
 ```
 
 ### Conditional Relations
@@ -241,25 +243,25 @@ const OrderService = defineService(
     total: z.number(),
   })
 )
-.name('orders')
-.relation('customerId', 'users', 'fail')
-.validate(async (ctx, doc) => {
-  if (doc.isGuest) {
-    // Guest orders must have email, no customer relation
-    if (!doc.guestEmail) {
-      throw new Error('Guest orders require email')
+  .name('orders')
+  .relation('customerId', 'users', 'fail')
+  .validate(async (ctx, doc) => {
+    if (doc.isGuest) {
+      // Guest orders must have email, no customer relation
+      if (!doc.guestEmail) {
+        throw new Error('Guest orders require email')
+      }
+    } else {
+      // Regular orders must have valid customer
+      if (!doc.customerId) {
+        throw new Error('Orders require customerId')
+      }
+      const customer = await ctx.db.get(doc.customerId)
+      if (!customer) {
+        throw new Error('Customer not found')
+      }
     }
-  } else {
-    // Regular orders must have valid customer
-    if (!doc.customerId) {
-      throw new Error('Orders require customerId')
-    }
-    const customer = await ctx.db.get(doc.customerId)
-    if (!customer) {
-      throw new Error('Customer not found')
-    }
-  }
-})
+  })
 ```
 
 ## Relation Performance
@@ -272,7 +274,7 @@ Relations automatically create indexes for efficient lookups:
 const PostService = defineService(postSchema)
   .name('posts')
   .relation('authorId', 'users', 'cascade')
-  // Automatically creates index: ['authorId']
+// Automatically creates index: ['authorId']
 ```
 
 ### Query Optimization
@@ -283,13 +285,13 @@ Use relation indexes for efficient queries:
 // Efficiently find posts by author (uses automatic relation index)
 const userPosts = await ctx.db
   .query('posts')
-  .withIndex('by_authorId', q => q.eq('authorId', userId))
+  .withIndex('by_authorId', (q) => q.eq('authorId', userId))
   .collect()
 
 // Find comments on a specific post (uses relation index)
 const postComments = await ctx.db
   .query('comments')
-  .withIndex('by_postId', q => q.eq('postId', postId))
+  .withIndex('by_postId', (q) => q.eq('postId', postId))
   .collect()
 ```
 
@@ -317,18 +319,14 @@ Handle relation-specific errors:
 import {
   ValidationError,
   DocumentNotFoundError,
-  ConvexSQLError
+  ConvexSQLError,
 } from 'convex-service'
 
 export const createPost = mutation({
   args: PostService.args,
   handler: async (ctx, args) => {
     try {
-      return await ctx.db
-        .insert('posts')
-        .one(args)
-        .validate()
-        .execute()
+      return await ctx.db.insert('posts').one(args).validate().execute()
     } catch (error) {
       if (error instanceof ValidationError) {
         if (error.message.includes('authorId')) {
@@ -351,7 +349,7 @@ export const deleteCategory = mutation({
       if (error instanceof ConvexSQLError) {
         return {
           success: false,
-          error: 'Cannot delete category - posts still exist'
+          error: 'Cannot delete category - posts still exist',
         }
       }
       throw error
@@ -365,12 +363,14 @@ export const deleteCategory = mutation({
 ### Relation Design
 
 **✅ Good practices**:
+
 - Use `'cascade'` for owned relationships (post → comments)
 - Use `'fail'` for referenced relationships (post → category)
 - Always index foreign key fields
 - Validate foreign keys during inserts/updates
 
 **❌ Avoid**:
+
 - Circular cascade relationships
 - Too many cascade levels
 - Missing indexes on foreign keys
@@ -408,13 +408,13 @@ Relations provide full TypeScript support:
 const PostService = defineService(
   z.object({
     title: z.string(),
-    authorId: zid('users'),        // Type-safe foreign key
+    authorId: zid('users'), // Type-safe foreign key
     categoryId: zid('categories'),
   })
 )
-.name('posts')
-.relation('authorId', 'users', 'cascade')      // Field name type-checked
-.relation('categoryId', 'categories', 'fail')  // Table name type-checked
+  .name('posts')
+  .relation('authorId', 'users', 'cascade') // Field name type-checked
+  .relation('categoryId', 'categories', 'fail') // Table name type-checked
 
 // TypeScript knows the field types
 type PostArgs = typeof PostService.args
