@@ -104,7 +104,7 @@ export const createUserWithDefaults = mutation({
 
 ## 📚 Documentation
 
-For comprehensive documentation, examples, and advanced usage, visit our [documentation site](/).
+For comprehensive documentation, examples, and advanced usage, visit the [documentation site](https://convex-service.vercel.app/docs).
 
 ## 📄 License
 
