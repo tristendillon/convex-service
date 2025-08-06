@@ -1,0 +1,384 @@
+---
+title: Roadmap
+description: Planned features and upcoming improvements for Convex Service
+---
+
+# Roadmap
+
+This page outlines planned features and improvements that are designed but not yet implemented in Convex Service. These features are documented to provide a preview of upcoming functionality and gather community feedback.
+
+## 🚧 Planned Features
+
+### Dynamic Defaults with Data Access
+
+**Status**: Planned | **Priority**: High
+
+Currently, Convex Service supports static defaults and simple function defaults:
+
+```typescript
+// ✅ Currently supported
+const UserService = defineService(schema)
+  .name('users')
+  .default('isActive', true) // Static default
+  .default('createdAt', () => Date.now()) // Function default (no data access)
+```
+
+**Planned enhancement**: Dynamic defaults that receive input data:
+
+```typescript
+// 🚧 Planned feature
+const UserService = defineService(
+  z.object({
+    firstName: z.string(),
+    lastName: z.string(),
+    displayName: z.string(),
+    email: z.string(),
+  })
+)
+  .name('users')
+  .default('displayName', (data) => `${data.firstName} ${data.lastName}`) // Dynamic with data access
+  .default('username', (data) => data.email.split('@')[0]) // Computed from other fields
+```
+
+**Current limitation**: The `ValueOrFunction<T>` type only supports `T | (() => T)`, not `(data) => T`.
+
+**Use cases**:
+
+- Computed display names from multiple fields
+- Generating usernames from email addresses
+- Creating slugs from titles
+- Setting defaults based on other field values
+
+> **Source**: Currently documented in [`docs/service-builder/builder-methods.mdx`](https://github.com/tristendillon/convex-service/blob/main/docs/content/docs/service-builder/builder-methods.mdx#L114) but not implemented in [`src/service.types.ts:65`](https://github.com/tristendillon/convex-service/blob/main/src/service.types.ts#L65)
+
+---
+
+### Soft Cascade Relations
+
+**Status**: Planned | **Priority**: Medium
+
+Currently, Convex Service supports hard cascades and fail constraints:
+
+```typescript
+// ✅ Currently supported
+const PostService = defineService(schema)
+  .name('posts')
+  .relation('authorId', 'users', 'cascade') // Hard delete
+  .relation('categoryId', 'categories', 'fail') // Prevent deletion
+  .relation('tagId', 'tags', 'setOptional') // Set to null (limited support)
+```
+
+**Planned enhancement**: Full soft cascade support with business logic:
+
+```typescript
+// 🚧 Planned feature
+const PostService = defineService(schema)
+  .name('posts')
+  .relation('authorId', 'users', 'softCascade', {
+    markAsDeleted: true, // Mark related records as deleted
+    preserveData: true, // Keep data for audit trails
+    cascadeAfter: 30 * 24 * 60 * 60, // Delay before hard delete (30 days)
+  })
+```
+
+**Features planned**:
+
+- Configurable soft delete behavior
+- Delayed hard deletion with cleanup jobs
+- Audit trail preservation
+- Conditional cascading based on business rules
+- Recovery mechanisms for soft-deleted data
+
+**Use cases**:
+
+- User account deactivation vs permanent deletion
+- Content moderation workflows
+- Compliance with data retention policies
+- Undo/restore functionality
+
+---
+
+### Enhanced Error Management
+
+**Status**: Planned | **Priority**: High
+
+Current error handling provides basic error types:
+
+```typescript
+// ✅ Currently supported
+try {
+  await ctx.db.insert('users').one(data).validate().execute()
+} catch (error) {
+  if (error instanceof ValidationError) {
+    // Handle validation errors
+  }
+  if (error instanceof UniqueConstraintError) {
+    // Handle constraint violations
+  }
+}
+```
+
+**Possible Enhancements**:
+
+#### Structured Error Details
+
+```typescript
+// 🚧 Planned feature
+try {
+  await ctx.db.insert('users').one(data).validate().execute()
+} catch (error) {
+  if (error instanceof ValidationError) {
+    error.details.forEach((detail) => {
+      console.log(`Field: ${detail.field}`) // Specific field that failed
+      console.log(`Code: ${detail.code}`) // Error code (e.g., "INVALID_EMAIL")
+      console.log(`Message: ${detail.message}`) // User-friendly message
+      console.log(`Value: ${detail.value}`) // Value that caused the error
+    })
+  }
+}
+```
+
+#### Error Aggregation
+
+```typescript
+// 🚧 Planned feature
+const result = await ctx.db
+  .insert('users')
+  .many(users)
+  .validate()
+  .executeWithErrors() // Returns both successes and errors
+
+result.successes // Successfully inserted records
+result.errors // Detailed error information per failed record
+```
+
+#### Custom Error Types
+
+```typescript
+// 🚧 Planned feature
+class BusinessRuleError extends ConvexServiceError {
+  constructor(rule: string, context: any) {
+    super(`Business rule violated: ${rule}`, context)
+  }
+}
+
+const UserService = defineService(schema).validate(
+  async (ctx, tableName, data) => {
+    if (data.age < 13) {
+      throw new BusinessRuleError('MIN_AGE', {
+        required: 13,
+        provided: data.age,
+      })
+    }
+  }
+)
+```
+
+---
+
+### React Integration APIs
+
+**Status**: Planned | **Priority**: Medium
+
+Currently, Convex Service works with standard Convex React hooks:
+
+```typescript
+// ✅ Currently supported
+import { useMutation } from 'convex/react'
+import { api } from '../convex/_generated/api'
+
+function MyComponent() {
+  const createUser = useMutation(api.users.createUser)
+
+  const handleSubmit = async (data) => {
+    try {
+      await createUser(data)
+    } catch (error) {
+      // Basic error handling
+    }
+  }
+}
+```
+
+**Possible enhancements**: Service-aware React hooks with enhanced functionality:
+
+```typescript
+// 🚧 Planned feature
+import { useServiceMutation, useServiceQuery } from 'convex-service/react'
+
+function MyComponent() {
+  // Enhanced mutation hook with built-in error handling
+  const {
+    mutate: createUser,
+    isLoading,
+    error,
+  } = useServiceMutation(api.users.createUser, {
+    onSuccess: (result) => {
+      toast.success('User created successfully')
+    },
+    onError: (error) => {
+      if (error instanceof ValidationError) {
+        // Handle validation errors with field-specific feedback
+        setFieldErrors(error.fieldErrors)
+      }
+    },
+  })
+
+  // Type-safe query with service validation
+  const { data: users, isLoading } = useServiceQuery(
+    api.users.listUsers,
+    { status: 'active' },
+    {
+      // Built-in optimistic updates
+      optimisticUpdate: (current, newUser) => [...current, newUser],
+      // Automatic error boundaries
+      errorBoundary: true,
+      // Service-aware caching
+      cacheKey: 'active-users',
+    }
+  )
+}
+```
+
+**Features**:
+
+- Service-aware error handling with field-level feedback
+- Built-in optimistic updates
+- Type-safe query/mutation hooks
+- Automatic loading states and error boundaries
+- Enhanced caching strategies
+- Form integration helpers
+
+---
+
+### Advanced Validation Features
+
+**Status**: Theory
+
+**Conditional Validation**:
+
+```typescript
+// 🚧 Planned feature
+const UserService = defineService(schema)
+  .validate(when('type', 'premium',
+    z.object({
+      subscriptionId: z.string(),
+      billingAddress: z.object({...})
+    })
+  ))
+  .validate(when('age', gte(18),
+    z.object({
+      canVote: z.boolean().default(true)
+    })
+  ))
+```
+
+**Cross-Field Validation**:
+
+```typescript
+// 🚧 Planned feature
+const EventService = defineService(schema).validate(
+  crossField(['startDate', 'endDate'], (start, end) => {
+    if (end <= start) {
+      throw new ValidationError('End date must be after start date')
+    }
+  })
+)
+```
+
+**Async Validation Batching**:
+
+```typescript
+// 🚧 Planned feature
+const UserService = defineService(schema).validate(
+  async (ctx, tableName, documents) => {
+    // Batch validation for multiple documents
+    const emails = documents.map((d) => d.email)
+    const existingEmails = await ctx.db
+      .query('users')
+      .filter((q) =>
+        q.or(...emails.map((email) => q.eq(q.field('email'), email)))
+      )
+      .collect()
+
+    // Validate uniqueness in batch
+    // ... validation logic
+  }
+)
+```
+
+---
+
+### Performance Enhancements
+
+**Status**: Planned | **Priority**: Low
+
+**Bundle Size Optimization**:
+
+- Tree-shakeable service definitions
+- Lazy-loaded validation schemas
+- Reduced runtime overhead
+
+## 💬 Community Input
+
+Community feedback is valued on these features and existing features. If you have:
+
+- **Use cases** for any of these features
+- **Alternative approaches** to consider
+- **Priority preferences** for implementation order
+- **Additional features** you'd like to see
+
+Please:
+
+- [Open an issue](https://github.com/tristendillon/convex-service/issues) for feature discussions
+- [Join discussions](https://github.com/tristendillon/convex-service/discussions) about implementation approaches
+- [Contribute](https://github.com/tristendillon/convex-service/blob/main/CONTRIBUTING.md) to development if you're interested
+
+---
+
+## 📋 Current Limitations
+
+While these features are planned, here are current workarounds:
+
+### Dynamic Defaults Workaround
+
+```typescript
+// Current workaround for dynamic defaults
+export const createUser = mutation({
+  args: UserService.argsWithoutDefaults, // Use partial args
+  handler: async (ctx, args) => {
+    const userData = {
+      ...args,
+      displayName: args.displayName || `${args.firstName} ${args.lastName}`,
+      username: args.username || args.email.split('@')[0],
+    }
+
+    return await ctx.db.insert('users').one(userData).validate().execute()
+  },
+})
+```
+
+## Next Steps
+
+<Cards>
+  <Card
+    title="Getting Started"
+    description="Start using Convex Service with current features"
+    href="/docs/getting-started"
+  />
+  <Card
+    title="API Reference"
+    description="Complete reference for implemented features"
+    href="/docs/api-reference/service-builder"
+  />
+  <Card
+    title="GitHub Issues"
+    description="Request features or report issues"
+    href="https://github.com/tristendillon/convex-service/issues"
+  />
+  <Card
+    title="Discussions"
+    description="Join the community discussion"
+    href="https://github.com/tristendillon/convex-service/discussions"
+  />
+</Cards>

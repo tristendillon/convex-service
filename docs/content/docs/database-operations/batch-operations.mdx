@@ -1,0 +1,707 @@
+---
+title: Batch Operations
+description: Learn efficient bulk operations for insert, replace, patch, and delete
+---
+
+# Batch Operations
+
+Batch operations allow you to perform multiple database operations efficiently in a single call. Convex Service provides optimized batch support for all CRUD operations with validation, constraint checking, and type safety.
+
+## Why Use Batch Operations?
+
+Batch operations provide a cleaner API for bulk operations:
+
+```typescript
+// Both patterns work equally well - Convex handles them gracefully
+const userIds = []
+for (const user of users) {
+  const userId = await ctx.db.insert('users').one(user).validate().execute()
+  userIds.push(userId)
+}
+
+// ✅ Cleaner API - single batch operation for better readability
+const userIds = await ctx.db
+  .insert('users')
+  .many(users)
+  .validate()
+  .execute()
+```
+
+**Benefits of batch API:**
+- Cleaner, more readable code
+- Atomic validation across all records in a single call
+- Consistent API patterns
+- Better developer experience
+
+## Batch Insert Operations
+
+### Basic Batch Insert
+
+Insert multiple records in a single operation:
+
+```typescript
+export const createManyUsers = mutation({
+  args: v.object({
+    users: v.array(UserService.args),
+  }),
+  handler: async (ctx, args) => {
+    const userIds = await ctx.db
+      .insert('users')
+      .many(args.users)      // Insert multiple records
+      .execute()
+
+    return { userIds, count: userIds.length }
+  },
+})
+```
+
+> **Example**: Complete batch insert in [`test/src/convex/myFunctions.ts:18-30`](https://github.com/tristendillon/convex-service/blob/main/test/src/convex/myFunctions.ts#L18-L30)
+
+### Batch Insert with Validation
+
+Enable validation for all records in the batch:
+
+```typescript
+export const createManyValidatedUsers = mutation({
+  args: v.object({
+    users: v.array(UserService.args),
+  }),
+  handler: async (ctx, args) => {
+    const userIds = await ctx.db
+      .insert('users')
+      .many(args.users)
+      .validate()            // Validates every record
+      .execute()
+
+    return userIds
+  },
+})
+```
+
+### Batch Insert with Defaults
+
+Apply defaults to all records in the batch:
+
+```typescript
+export const createManyUsersWithDefaults = mutation({
+  args: v.object({
+    users: v.array(UserService.argsWithoutDefaults), // Default fields optional
+  }),
+  handler: async (ctx, args) => {
+    const userIds = await ctx.db
+      .insert('users')
+      .withDefaults()        // Apply defaults to each record
+      .many(args.users)
+      .validate()
+      .execute()
+
+    return userIds
+  },
+})
+```
+
+> **Example**: Batch inserts with defaults in [`test/src/convex/myFunctions.ts:45-58`](https://github.com/tristendillon/convex-service/blob/main/test/src/convex/myFunctions.ts#L45-L58)
+
+## Batch Replace Operations
+
+### Basic Batch Replace
+
+Replace multiple existing records:
+
+```typescript
+export const replaceManyUsers = mutation({
+  args: v.object({
+    users: v.array(v.object({
+      id: v.id('users'),
+      ...UserService.args.fields,
+    })),
+  }),
+  handler: async (ctx, args) => {
+    const updatedUsers = await ctx.db
+      .replace('users')
+      .many(
+        args.users.map(({ id, ...user }) => ({ 
+          id, 
+          value: user 
+        }))
+      )
+      .execute()
+
+    return updatedUsers
+  },
+})
+```
+
+> **Example**: Batch replace implementation in [`test/src/convex/myFunctions.ts:75-92`](https://github.com/tristendillon/convex-service/blob/main/test/src/convex/myFunctions.ts#L75-L92)
+
+### Batch Replace with Validation
+
+```typescript
+export const replaceManyUsersValidated = mutation({
+  args: v.object({
+    users: v.array(v.object({
+      id: v.id('users'),
+      ...UserService.args.fields,
+    })),
+  }),
+  handler: async (ctx, args) => {
+    const updatedUsers = await ctx.db
+      .replace('users')
+      .many(
+        args.users.map(({ id, ...user }) => ({ 
+          id, 
+          value: user 
+        }))
+      )
+      .validate()            // Validates each replacement
+      .execute()
+
+    return updatedUsers
+  },
+})
+```
+
+### Batch Replace with Defaults
+
+```typescript
+export const replaceManyUsersWithDefaults = mutation({
+  args: v.object({
+    users: v.array(v.object({
+      id: v.id('users'),
+      ...UserService.argsWithoutDefaults.fields,
+    })),
+  }),
+  handler: async (ctx, args) => {
+    const updatedUsers = await ctx.db
+      .replace('users')
+      .withDefaults()        // Apply defaults to each replacement
+      .many(
+        args.users.map(({ id, ...user }) => ({ 
+          id, 
+          value: user 
+        }))
+      )
+      .validate()
+      .execute()
+
+    return updatedUsers
+  },
+})
+```
+
+## Batch Patch Operations
+
+### Basic Batch Patch
+
+Update multiple records with partial data:
+
+```typescript
+import { partial } from 'convex-helpers/validators'
+
+export const updateManyUsers = mutation({
+  args: v.object({
+    updates: v.array(v.object({
+      id: v.id('users'),
+      ...partial(UserService.args.fields),
+    })),
+  }),
+  handler: async (ctx, args) => {
+    const updatedUsers = await ctx.db
+      .patch('users')
+      .many(
+        args.updates.map(({ id, ...updates }) => ({ 
+          id, 
+          value: updates 
+        }))
+      )
+      .execute()
+
+    return updatedUsers
+  },
+})
+```
+
+> **Example**: Complete batch patch in [`test/src/convex/myFunctions.ts:145-162`](https://github.com/tristendillon/convex-service/blob/main/test/src/convex/myFunctions.ts#L145-L162)
+
+### Batch Patch with Validation
+
+```typescript
+export const updateManyUsersValidated = mutation({
+  args: v.object({
+    updates: v.array(v.object({
+      id: v.id('users'),
+      ...partial(UserService.args.fields),
+    })),
+  }),
+  handler: async (ctx, args) => {
+    const updatedUsers = await ctx.db
+      .patch('users')
+      .many(
+        args.updates.map(({ id, ...updates }) => ({ 
+          id, 
+          value: updates 
+        }))
+      )
+      .validate()            // Validates each patched record
+      .execute()
+
+    return updatedUsers
+  },
+})
+```
+
+## Batch Delete Operations
+
+### Basic Batch Delete
+
+Delete multiple records by ID:
+
+```typescript
+export const deleteManyUsers = mutation({
+  args: v.object({
+    userIds: v.array(v.id('users')),
+  }),
+  handler: async (ctx, args) => {
+    const deletedIds = await ctx.db
+      .delete('users')
+      .many(args.userIds)    // Delete multiple records
+
+    return { deletedIds, count: deletedIds.length }
+  },
+})
+```
+
+> **Example**: Batch delete implementation in [`test/src/convex/myFunctions.ts:174-182`](https://github.com/tristendillon/convex-service/blob/main/test/src/convex/myFunctions.ts#L174-L182)
+
+### Conditional Batch Delete
+
+Delete records based on conditions:
+
+```typescript
+export const deleteInactiveUsers = mutation({
+  args: v.object({
+    daysInactive: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const cutoffDate = Date.now() - (args.daysInactive * 24 * 60 * 60 * 1000)
+    
+    // Find inactive users
+    const inactiveUsers = await ctx.db
+      .query('users')
+      .filter(q => 
+        q.and(
+          q.eq(q.field('isActive'), false),
+          q.lt(q.field('lastLoginAt'), cutoffDate)
+        )
+      )
+      .collect()
+
+    if (inactiveUsers.length === 0) {
+      return { deletedIds: [], count: 0 }
+    }
+
+    // Batch delete them
+    const deletedIds = await ctx.db
+      .delete('users')
+      .many(inactiveUsers.map(u => u._id))
+
+    return { deletedIds, count: deletedIds.length }
+  },
+})
+```
+
+## Batch Validation Behavior
+
+### Comprehensive Validation
+
+Batch validation checks all records and constraints:
+
+```typescript
+const UserService = defineService(schema)
+  .name('users')
+  .unique('email')
+  .unique('username')
+  .validate()
+
+export const createManyUsers = mutation({
+  args: v.object({
+    users: v.array(UserService.args),
+  }),
+  handler: async (ctx, args) => {
+    try {
+      const userIds = await ctx.db
+        .insert('users')
+        .many(args.users)
+        .validate()          // Validates:
+        // 1. Each record against Zod schema
+        // 2. Email uniqueness within batch AND against existing records
+        // 3. Username uniqueness within batch AND against existing records
+        .execute()
+
+      return { success: true, userIds }
+    } catch (error) {
+      if (error instanceof ValidationError) {
+        return { success: false, error: 'Some user data is invalid' }
+      }
+      if (error instanceof UniqueConstraintError) {
+        return { success: false, error: 'Duplicate emails or usernames detected' }
+      }
+      throw error
+    }
+  },
+})
+```
+
+### Partial Failure Handling
+
+When validation fails, the entire batch fails atomically:
+
+```typescript
+export const createManyUsersWithErrorHandling = mutation({
+  args: v.object({
+    users: v.array(UserService.args),
+    continueOnError: v.optional(v.boolean()),
+  }),
+  handler: async (ctx, args) => {
+    if (!args.continueOnError) {
+      // Standard batch - all or nothing
+      try {
+        const userIds = await ctx.db
+          .insert('users')
+          .many(args.users)
+          .validate()
+          .execute()
+        
+        return { success: true, userIds, failed: [] }
+      } catch (error) {
+        return { success: false, error: error.message }
+      }
+    }
+
+    // Individual processing with error collection
+    const results = []
+    const failed = []
+
+    for (let i = 0; i < args.users.length; i++) {
+      try {
+        const userId = await ctx.db
+          .insert('users')
+          .one(args.users[i])
+          .validate()
+          .execute()
+        
+        results.push(userId)
+      } catch (error) {
+        failed.push({ index: i, user: args.users[i], error: error.message })
+      }
+    }
+
+    return {
+      success: true,
+      userIds: results,
+      failed,
+      successCount: results.length,
+      failureCount: failed.length
+    }
+  },
+})
+```
+
+## Performance Optimization
+
+### Batch Size Considerations
+
+```typescript
+export const createManyUsersOptimized = mutation({
+  args: v.object({
+    users: v.array(UserService.args),
+    batchSize: v.optional(v.number()),
+  }),
+  handler: async (ctx, args) => {
+    const batchSize = args.batchSize || 100  // Default batch size
+    const allUserIds = []
+
+    // Process in chunks
+    for (let i = 0; i < args.users.length; i += batchSize) {
+      const batch = args.users.slice(i, i + batchSize)
+      
+      const batchUserIds = await ctx.db
+        .insert('users')
+        .many(batch)
+        .validate()
+        .execute()
+
+      allUserIds.push(...batchUserIds)
+    }
+
+    return { userIds: allUserIds, totalCount: allUserIds.length }
+  },
+})
+```
+
+### Constraint Optimization
+
+For large batches with unique constraints, consider pre-validation:
+
+```typescript
+export const createManyUsersPreValidated = mutation({
+  args: v.object({
+    users: v.array(UserService.args),
+  }),
+  handler: async (ctx, args) => {
+    // Pre-validate for duplicates within the batch
+    const emails = new Set()
+    const usernames = new Set()
+    
+    for (const user of args.users) {
+      if (emails.has(user.email)) {
+        return { error: `Duplicate email in batch: ${user.email}` }
+      }
+      if (usernames.has(user.username)) {
+        return { error: `Duplicate username in batch: ${user.username}` }
+      }
+      emails.add(user.email)
+      usernames.add(user.username)
+    }
+
+    // Pre-validate against existing records (sample check)
+    const existingEmails = await ctx.db
+      .query('users')
+      .filter(q => q.in(q.field('email'), Array.from(emails)))
+      .collect()
+
+    if (existingEmails.length > 0) {
+      return { error: `Email already exists: ${existingEmails[0].email}` }
+    }
+
+    // Now perform the batch insert
+    const userIds = await ctx.db
+      .insert('users')
+      .many(args.users)
+      .validate()
+      .execute()
+
+    return { userIds }
+  },
+})
+```
+
+## Advanced Batch Patterns
+
+### Transactional Batch Operations
+
+Combine different operations in a single mutation:
+
+```typescript
+export const createUserWithProfile = mutation({
+  args: v.object({
+    users: v.array(UserService.args),
+    profiles: v.array(ProfileService.args),
+  }),
+  handler: async (ctx, args) => {
+    if (args.users.length !== args.profiles.length) {
+      throw new Error('Users and profiles arrays must be the same length')
+    }
+
+    // Create all users first
+    const userIds = await ctx.db
+      .insert('users')
+      .many(args.users)
+      .validate()
+      .execute()
+
+    // Create profiles with user IDs
+    const profilesWithUserIds = args.profiles.map((profile, index) => ({
+      ...profile,
+      userId: userIds[index],
+    }))
+
+    const profileIds = await ctx.db
+      .insert('profiles')
+      .many(profilesWithUserIds)
+      .validate()
+      .execute()
+
+    return {
+      users: userIds.map((userId, index) => ({
+        userId,
+        profileId: profileIds[index],
+      }))
+    }
+  },
+})
+```
+
+### Conditional Batch Processing
+
+Process batches based on record conditions:
+
+```typescript
+export const updateUsersConditionally = mutation({
+  args: v.object({
+    updates: v.array(v.object({
+      id: v.id('users'),
+      updates: partial(UserService.args.fields),
+      condition: v.optional(v.string()),
+    })),
+  }),
+  handler: async (ctx, args) => {
+    // Separate updates by condition
+    const immediateUpdates = []
+    const conditionalUpdates = []
+
+    for (const update of args.updates) {
+      if (update.condition) {
+        conditionalUpdates.push(update)
+      } else {
+        immediateUpdates.push(update)
+      }
+    }
+
+    const results = []
+
+    // Process immediate updates as batch
+    if (immediateUpdates.length > 0) {
+      const updatedUsers = await ctx.db
+        .patch('users')
+        .many(
+          immediateUpdates.map(({ id, updates }) => ({ id, value: updates }))
+        )
+        .validate()
+        .execute()
+
+      results.push(...updatedUsers)
+    }
+
+    // Process conditional updates individually
+    for (const { id, updates, condition } of conditionalUpdates) {
+      const user = await ctx.db.get(id)
+      if (user && evaluateCondition(user, condition)) {
+        const updatedUser = await ctx.db
+          .patch('users')
+          .one(id, updates)
+          .validate()
+          .execute()
+        
+        results.push(updatedUser)
+      }
+    }
+
+    return { updatedUsers: results, count: results.length }
+  },
+})
+
+function evaluateCondition(user: any, condition: string): boolean {
+  // Implement your condition logic
+  // For example: "isActive && age > 18"
+  return true // Simplified
+}
+```
+
+## Error Handling in Batches
+
+Handle batch-specific errors appropriately:
+
+```typescript
+import { 
+  ValidationError,
+  UniqueConstraintError,
+  ConvexSQLError 
+} from 'convex-service'
+
+export const createManyUsers = mutation({
+  args: v.object({
+    users: v.array(UserService.args),
+  }),
+  handler: async (ctx, args) => {
+    try {
+      const userIds = await ctx.db
+        .insert('users')
+        .many(args.users)
+        .validate()
+        .execute()
+
+      return { success: true, userIds, count: userIds.length }
+    } catch (error) {
+      if (error instanceof ValidationError) {
+        return { 
+          success: false, 
+          error: 'batch_validation_failed',
+          message: 'One or more users have invalid data',
+          details: error.message,
+          affectedCount: args.users.length
+        }
+      }
+      
+      if (error instanceof UniqueConstraintError) {
+        return { 
+          success: false, 
+          error: 'batch_constraint_violation',
+          message: 'Duplicate values detected in batch or against existing data',
+          constraint: error.constraint,
+          affectedCount: args.users.length
+        }
+      }
+      
+      if (error instanceof ConvexSQLError) {
+        return { 
+          success: false, 
+          error: 'batch_database_error',
+          message: 'Database operation failed for the batch'
+        }
+      }
+      
+      throw error
+    }
+  },
+})
+```
+
+## Best Practices
+
+### Batch Operation Guidelines
+
+**✅ Good practices**:
+- Use batch API for cleaner code when handling multiple records
+- Set reasonable batch sizes (100-1000 records) for very large datasets
+- Validate entire batches atomically when possible
+- Handle batch failures gracefully
+- Pre-validate constraints when feasible
+
+**❌ Avoid**:
+- Very large batches (>1000 records) without chunking
+- Ignoring batch validation errors
+- Mixed operation types in single batches
+
+### Code Organization
+
+1. **Batch Size**: Consider manageable batch sizes for large datasets
+2. **Validation Strategy**: Pre-validate when possible to catch errors early  
+3. **Chunking**: Break very large datasets into manageable batches
+4. **Error Handling**: Decide between all-or-nothing vs partial success strategies
+5. **Readability**: Use batch operations for cleaner, more maintainable code
+
+## Next Steps
+
+<Cards>
+  <Card 
+    title="Error Handling" 
+    description="Advanced error handling patterns for batch operations"
+    href="/docs/advanced/error-handling" 
+  />
+  <Card 
+    title="Performance Optimization" 
+    description="Optimize batch operations for large datasets"
+    href="/docs/advanced/performance" 
+  />
+  <Card 
+    title="API Reference" 
+    description="Complete batch operations API reference"
+    href="/docs/api-reference/database-operations" 
+  />
+  <Card 
+    title="Migration Guide" 
+    description="Migrate existing operations to batch patterns"
+    href="/docs/api-reference/migration" 
+  />
+</Cards>

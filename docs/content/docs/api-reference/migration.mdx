@@ -1,0 +1,630 @@
+---
+title: Migration Guide
+description: Migrate from standard Convex to Convex Service step-by-step
+---
+
+# Migration Guide
+
+This guide walks you through migrating from standard Convex to Convex Service, with step-by-step examples and best practices.
+
+## Why Migrate?
+
+Convex Service provides significant advantages over standard Convex:
+
+- **Rich Validation**: Zod-based schema validation with custom validation functions
+- **Type Safety**: Auto-generated TypeScript types and validators
+- **Constraints**: Unique constraints, foreign keys, and cascading deletes
+- **Default Values**: Static, function-based, and dynamic defaults
+- **Better DX**: Fluent builder API and comprehensive error handling
+
+## Migration Overview
+
+The migration process involves:
+
+1. **Schema Migration**: Convert `defineTable` to `defineService`
+2. **Mutation Updates**: Replace mutation factory and add validation
+3. **Error Handling**: Update error handling patterns
+4. **Type Updates**: Use auto-generated types
+
+## Step 1: Schema Migration
+
+### Before (Standard Convex)
+
+```typescript
+// convex/schema.ts
+import { defineSchema, defineTable } from 'convex/server'
+import { v } from 'convex/values'
+
+export default defineSchema({
+  users: defineTable({
+    name: v.string(),
+    email: v.string(),
+    age: v.number(),
+    isActive: v.boolean(),
+    profileId: v.optional(v.id('profiles')),
+  })
+    .index('by_email', ['email'])
+    .index('by_age', ['age'])
+    .searchIndex('search_users', {
+      searchField: 'name',
+      filterFields: ['isActive'],
+    }),
+
+  posts: defineTable({
+    title: v.string(),
+    content: v.string(),
+    authorId: v.id('users'),
+    published: v.boolean(),
+    slug: v.string(),
+  })
+    .index('by_author', ['authorId'])
+    .index('by_slug', ['slug']),
+})
+```
+
+### After (Convex Service)
+
+```typescript
+// convex/schema.ts
+import { defineService, defineServiceSchema } from 'convex-service'
+import { defineSchema } from 'convex/server'
+import { zid } from 'convex-helpers/server/zod'
+import { z } from 'zod'
+
+const UserService = defineService(
+  z.object({
+    name: z.string().min(1, 'Name is required'),
+    email: z.string().email('Must be valid email'),
+    age: z.number().min(18, 'Must be at least 18'),
+    isActive: z.boolean(),
+    profileId: zid('profiles').optional(),
+  })
+)
+  .name('users')
+  .default('age', 18) // Add default values
+  .default('isActive', true)
+  .unique('email') // Add unique constraints
+  .relation('profileId', 'profiles', 'cascade') // Add relations
+  .index('by_age', ['age'])
+  .searchIndex('search_users', {
+    searchField: 'name',
+    filterFields: ['isActive'],
+  })
+  .validate() // Enable validation
+
+const PostService = defineService(
+  z.object({
+    title: z.string().min(1).max(200),
+    content: z.string().min(10),
+    authorId: zid('users'),
+    published: z.boolean(),
+    slug: z.string().regex(/^[a-z0-9-]+$/, 'Invalid slug format'),
+  })
+)
+  .name('posts')
+  .unique('slug') // Ensure unique slugs
+  .relation('authorId', 'users', 'cascade')
+  .index('by_author', ['authorId'])
+  .default('published', false)
+  .validate()
+
+// Register services
+export const ServiceSchema = defineServiceSchema({
+  users: UserService.register(),
+  posts: PostService.register(),
+}).register()
+
+// Export for Convex (backward compatibility)
+export default defineSchema({
+  users: UserService,
+  posts: PostService,
+})
+```
+
+**Migration Changes**:
+
+- ✅ `defineTable` → `defineService` with Zod schemas
+- ✅ `v.string()` → `z.string()` with validation rules
+- ✅ `v.id('table')` → `zid('table')` for foreign keys
+- ✅ Added `.unique()`, `.relation()`, `.default()`, `.validate()`
+- ✅ Created service schema registration
+
+## Step 2: Mutation Migration
+
+### Before (Standard Convex)
+
+```typescript
+// convex/users.ts
+import { mutation } from './_generated/server'
+import { v } from 'convex/values'
+
+export const createUser = mutation({
+  args: {
+    name: v.string(),
+    email: v.string(),
+    age: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    // Manual validation
+    if (!args.email.includes('@')) {
+      throw new Error('Invalid email')
+    }
+    if (args.age && args.age < 18) {
+      throw new Error('Must be at least 18')
+    }
+
+    // Manual default application
+    const userData = {
+      name: args.name,
+      email: args.email,
+      age: args.age ?? 18,
+      isActive: true,
+      profileId: undefined,
+    }
+
+    // Manual uniqueness check
+    const existing = await ctx.db
+      .query('users')
+      .filter((q) => q.eq(q.field('email'), args.email))
+      .first()
+
+    if (existing) {
+      throw new Error('Email already exists')
+    }
+
+    return await ctx.db.insert('users', userData)
+  },
+})
+
+export const updateUser = mutation({
+  args: {
+    id: v.id('users'),
+    name: v.optional(v.string()),
+    email: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const { id, ...updates } = args
+
+    // Manual validation for each field
+    if (updates.email && !updates.email.includes('@')) {
+      throw new Error('Invalid email')
+    }
+
+    return await ctx.db.patch(id, updates)
+  },
+})
+```
+
+### After (Convex Service)
+
+```typescript
+// convex/users.ts
+import { CreateServiceMutation } from 'convex-service'
+import { DataModel } from './_generated/dataModel'
+import { ServiceSchema } from './schema'
+
+const mutation = CreateServiceMutation<DataModel>(ServiceSchema.services)
+const users = ServiceSchema.services.users
+
+export const createUser = mutation({
+  args: users.argsWithoutDefaults, // Auto-generated types, defaults optional
+  handler: async (ctx, args) => {
+    try {
+      const userId = await ctx.db
+        .insert('users')
+        .withDefaults() // Auto-apply defaults
+        .one(args)
+        .validate() // Auto-validation + uniqueness + relations
+        .execute()
+
+      return userId
+    } catch (error) {
+      if (error instanceof ValidationError) {
+        throw new Error(`Invalid data: ${error.message}`)
+      }
+      if (error instanceof UniqueConstraintError) {
+        throw new Error('Email already registered')
+      }
+      throw error
+    }
+  },
+})
+
+export const updateUser = mutation({
+  args: {
+    id: v.id('users'),
+    updates: partial(users.args), // Partial update with validation
+  },
+  handler: async (ctx, args) => {
+    try {
+      const user = await ctx.db
+        .patch('users')
+        .one(args.id, args.updates)
+        .validate() // Validates the updated record
+        .execute()
+
+      return user
+    } catch (error) {
+      if (error instanceof ValidationError) {
+        throw new Error(`Update failed: ${error.message}`)
+      }
+      if (error instanceof DocumentNotFoundError) {
+        throw new Error('User not found')
+      }
+      throw error
+    }
+  },
+})
+```
+
+**Migration Changes**:
+
+- ✅ `mutation` → `CreateServiceMutation<DataModel>(services)`
+- ✅ Manual args → Auto-generated `users.args` / `users.argsWithoutDefaults`
+- ✅ Manual validation → `.validate()` chain with automatic validation
+- ✅ Manual defaults → `.withDefaults()` method
+- ✅ Manual uniqueness → Automatic constraint checking
+- ✅ Generic errors → Specific error types with proper handling
+
+## Step 3: Type Safety Migration
+
+### Before (Manual Types)
+
+```typescript
+// Manual type definitions
+interface User {
+  _id: Id<'users'>
+  _creationTime: number
+  name: string
+  email: string
+  age?: number
+  isActive: boolean
+  profileId?: Id<'profiles'>
+}
+
+interface CreateUserArgs {
+  name: string
+  email: string
+  age?: number
+}
+```
+
+### After (Auto-Generated Types)
+
+```typescript
+// Auto-generated from service definition
+type User = typeof UserService.validator._type
+type CreateUserArgs = typeof users.args._type
+type CreateUserArgsOptional = typeof users.argsWithoutDefaults._type
+
+// Or use them directly in mutations
+export const createUser = mutation({
+  args: users.argsWithoutDefaults, // Automatically typed
+  handler: async (ctx, args) => {
+    // args is fully typed with IntelliSense support
+    const userId = await ctx.db
+      .insert('users')
+      .withDefaults()
+      .one(args) // Type-checked against service schema
+      .validate()
+      .execute()
+
+    return userId // Type: Id<'users'>
+  },
+})
+```
+
+## Step 4: Error Handling Migration
+
+### Before (Generic Errors)
+
+```typescript
+export const createUser = mutation({
+  args: {
+    /* ... */
+  },
+  handler: async (ctx, args) => {
+    try {
+      // Manual validation with generic errors
+      if (!isValidEmail(args.email)) {
+        throw new Error('Invalid email')
+      }
+
+      return await ctx.db.insert('users', args)
+    } catch (error) {
+      // Generic error handling
+      throw new Error(`Failed to create user: ${error.message}`)
+    }
+  },
+})
+```
+
+### After (Structured Errors)
+
+```typescript
+import {
+  ValidationError,
+  UniqueConstraintError,
+  DocumentNotFoundError,
+  ConvexSQLError,
+} from 'convex-service'
+
+export const createUser = mutation({
+  args: users.argsWithoutDefaults,
+  handler: async (ctx, args) => {
+    try {
+      const userId = await ctx.db
+        .insert('users')
+        .withDefaults()
+        .one(args)
+        .validate()
+        .execute()
+
+      return { success: true, userId }
+    } catch (error) {
+      if (error instanceof ValidationError) {
+        return {
+          success: false,
+          error: 'validation_failed',
+          message: 'Please check your input data',
+          details: error.message,
+        }
+      }
+
+      if (error instanceof UniqueConstraintError) {
+        return {
+          success: false,
+          error: 'email_taken',
+          message: 'This email is already registered',
+        }
+      }
+
+      if (error instanceof ConvexSQLError) {
+        return {
+          success: false,
+          error: 'database_error',
+          message: 'A database error occurred',
+        }
+      }
+
+      throw error // Unexpected errors
+    }
+  },
+})
+```
+
+## Migration Checklist
+
+### Schema Migration
+
+- [ ] Install `convex-service` and `zod`
+- [ ] Convert `defineTable` to `defineService` with Zod schemas
+- [ ] Add validation rules to Zod schemas (`.min()`, `.email()`, etc.)
+- [ ] Replace `v.id('table')` with `zid('table')`
+- [ ] Add `.unique()` constraints where needed
+- [ ] Add `.relation()` for foreign keys
+- [ ] Add `.default()` values
+- [ ] Add `.validate()` to enable validation
+- [ ] Register services in `defineServiceSchema`
+
+### Mutation Migration
+
+- [ ] Replace `mutation` with `CreateServiceMutation`
+- [ ] Update args to use auto-generated types
+- [ ] Replace manual validation with `.validate()` chains
+- [ ] Replace manual defaults with `.withDefaults()`
+- [ ] Update error handling to use specific error types
+- [ ] Test all mutation operations
+
+### Optional Enhancements
+
+- [ ] Add batch operations where beneficial
+- [ ] Implement custom validation functions
+- [ ] Add search and vector indexes
+- [ ] Update client-side error handling
+
+## Common Migration Patterns
+
+### 1. Simple Table Migration
+
+```typescript
+// Before
+users: defineTable({
+  name: v.string(),
+  email: v.string(),
+}).index('by_email', ['email'])
+
+// After
+const UserService = defineService(
+  z.object({
+    name: z.string().min(1),
+    email: z.string().email(),
+  })
+)
+  .name('users')
+  .unique('email') // Upgraded from index to unique constraint
+  .validate()
+```
+
+### 2. Table with Relations
+
+```typescript
+// Before
+posts: defineTable({
+  title: v.string(),
+  authorId: v.id('users'),
+}).index('by_author', ['authorId'])
+
+// After
+const PostService = defineService(
+  z.object({
+    title: z.string().min(1),
+    authorId: zid('users'),
+  })
+)
+  .name('posts')
+  .relation('authorId', 'users', 'cascade') // Automatic cascade handling
+  .validate()
+```
+
+### 3. Complex Validation Migration
+
+```typescript
+// Before: Manual validation in mutations
+export const createPost = mutation({
+  args: { title: v.string(), slug: v.string() },
+  handler: async (ctx, args) => {
+    if (args.title.length === 0) throw new Error('Title required')
+    if (!/^[a-z0-9-]+$/.test(args.slug)) throw new Error('Invalid slug')
+
+    // Check slug uniqueness manually
+    const existing = await ctx.db
+      .query('posts')
+      .filter((q) => q.eq(q.field('slug'), args.slug))
+      .first()
+    if (existing) throw new Error('Slug already exists')
+
+    return await ctx.db.insert('posts', args)
+  },
+})
+
+// After: Automatic validation
+const PostService = defineService(
+  z.object({
+    title: z.string().min(1, 'Title required'),
+    slug: z.string().regex(/^[a-z0-9-]+$/, 'Invalid slug format'),
+  })
+)
+  .name('posts')
+  .unique('slug') // Automatic uniqueness checking
+  .validate()
+
+export const createPost = mutation({
+  args: posts.args,
+  handler: async (ctx, args) => {
+    // All validation happens automatically
+    return await ctx.db.insert('posts').one(args).validate().execute()
+  },
+})
+```
+
+## Migration Tips
+
+### 1. Gradual Migration
+
+You can migrate table by table - Convex Service works alongside standard Convex:
+
+```typescript
+export default defineSchema({
+  // Migrated tables
+  users: UserService,
+  posts: PostService,
+
+  // Standard Convex tables (not migrated yet)
+  legacy_table: defineTable({
+    field: v.string(),
+  }),
+})
+```
+
+### 2. Maintain Backward Compatibility
+
+Keep the standard `defineSchema` export for existing queries:
+
+```typescript
+// New service schema for enhanced mutations
+export const ServiceSchema = defineServiceSchema({
+  users: UserService.register(),
+}).register()
+
+// Keep standard schema for existing code
+export default defineSchema({
+  users: UserService,
+})
+```
+
+### 3. Testing Strategy
+
+1. **Schema first**: Migrate schema definitions
+2. **One mutation at a time**: Migrate mutations gradually
+3. **Test thoroughly**: Verify validation, constraints, and error handling
+4. **Monitor errors**: Watch for validation failures in production
+
+### 4. Performance Considerations
+
+- **Enable validation selectively**: Only add `.validate()` where needed
+- **Use batch operations**: Replace loops with `.many()` operations
+- **Monitor constraint checking**: Unique constraints add database queries
+
+## Troubleshooting
+
+### Common Issues
+
+**Q: "ValidationError: tableName is required"**
+A: Custom validation functions should throw `Error` objects, not `ValidationError`
+
+```typescript
+// ❌ Wrong
+.validate(async (ctx, doc) => {
+  throw new ValidationError('Custom error')
+})
+
+// ✅ Correct
+.validate(async (ctx, doc) => {
+  throw new Error('Custom error')
+})
+```
+
+**Q: "Unique constraint failed but I want to replace"**
+A: Use conflict resolution strategies:
+
+```typescript
+.unique(['firstName', 'lastName'], 'replace')  // Composite unique with replace
+```
+
+**Q: "Relations not cascading properly"**
+A: Ensure proper relation configuration:
+
+```typescript
+.relation('authorId', 'users', 'cascade')  // Delete posts when user deleted
+.relation('categoryId', 'categories', 'fail')  // Prevent category deletion
+```
+
+**Q: "Performance slower after migration"**
+A: Validation adds overhead - use selectively:
+
+```typescript
+// High-performance service without validation
+const AnalyticsService = defineService(schema).name('analytics')
+// No .validate() call = zero validation overhead
+
+// Validated service for user input
+const UserService = defineService(schema).name('users').validate()
+```
+
+## Next Steps
+
+After migration, explore advanced features:
+
+<Cards>
+  <Card
+    title="Advanced Relations"
+    description="Complex relationship patterns and cascading"
+    href="/docs/advanced/relations"
+  />
+  <Card
+    title="Custom Validation"
+    description="Business logic validation with database access"
+    href="/docs/service-builder/validation-system"
+  />
+  <Card
+    title="Batch Operations"
+    description="Efficient bulk operations for large datasets"
+    href="/docs/database-operations/batch-operations"
+  />
+  <Card
+    title="Error Handling"
+    description="Comprehensive error handling strategies"
+    href="/docs/advanced/error-handling"
+  />
+</Cards>

@@ -1,0 +1,572 @@
+---
+title: Service Builder API
+description: Complete API reference for service builder methods and types
+---
+
+# Service Builder API Reference
+
+Complete reference for all service builder methods, types, and configuration options.
+
+## Core Functions
+
+### `defineService<ZodSchema>(schema: ZodSchema)`
+
+Creates a new service builder with the given Zod schema.
+
+**Parameters:**
+- `schema`: A Zod schema defining the table structure
+
+**Returns:** Service builder instance
+
+**Source:** [`src/service.ts:327-333`](https://github.com/tristendillon/convex-service/blob/main/src/service.ts#L327-L333)
+
+```typescript
+import { defineService } from 'convex-service'
+import { z } from 'zod'
+
+const UserService = defineService(
+  z.object({
+    name: z.string(),
+    email: z.string().email(),
+    age: z.number().min(18),
+  })
+)
+```
+
+### `defineServiceSchema<Schema>(schema: Schema)`
+
+Creates a service schema definition containing multiple registered services.
+
+**Parameters:**
+- `schema`: Object mapping table names to registered service definitions
+
+**Returns:** Service schema definition
+
+**Source:** [`src/schema.ts:26-47`](https://github.com/tristendillon/convex-service/blob/main/src/schema.ts#L26-L47)
+
+```typescript
+import { defineServiceSchema } from 'convex-service'
+
+export const ServiceSchema = defineServiceSchema({
+  users: UserService.register(),
+  posts: PostService.register(),
+}).register()
+```
+
+## Builder Methods
+
+### `.name(tableName: string)`
+
+**Required.** Sets the table name and adds Convex system fields.
+
+**Parameters:**
+- `tableName`: The name of the table in Convex
+
+**Returns:** Service builder instance
+
+**Source:** [`src/service.ts:70-82`](https://github.com/tristendillon/convex-service/blob/main/src/service.ts#L70-L82)
+
+**Effects:**
+- Sets the table name
+- Adds `_id` and `_creationTime` system fields to schema
+- Enables proper TypeScript typing
+
+```typescript
+const UserService = defineService(schema)
+  .name('users')  // Table will be named 'users'
+```
+
+### `.index(name: string, fields: string[])`
+
+Creates a standard Convex index for efficient queries.
+
+**Parameters:**
+- `name`: Index name (automatically sanitized)
+- `fields`: Array of field names to index
+
+**Returns:** Service builder instance
+
+**Source:** [`src/service.ts:92-108`](https://github.com/tristendillon/convex-service/blob/main/src/service.ts#L92-L108)
+
+**Features:**
+- Index names sanitized to meet Convex requirements (64 chars max, alphanumeric + underscore)
+- Supports composite indexes
+- Field names are type-checked against schema
+
+```typescript
+const UserService = defineService(schema)
+  .name('users')
+  .index('by_email', ['email'])                    // Single field index
+  .index('by_age_active', ['age', 'isActive'])     // Composite index
+  .index('by_creation', ['_creationTime'])         // System field index
+```
+
+### `.searchIndex(name: string, config: SearchIndexConfig)`
+
+Creates a full-text search index.
+
+**Parameters:**
+- `name`: Index name
+- `config.searchField`: Field to enable full-text search on
+- `config.filterFields`: Optional array of fields for filtering
+
+**Returns:** Service builder instance
+
+**Source:** [`src/service.ts:110-132`](https://github.com/tristendillon/convex-service/blob/main/src/service.ts#L110-L132)
+
+```typescript
+interface SearchIndexConfig<DocumentType> {
+  searchField: ExtractFieldPathsWithConvexSystemFields<DocumentType>
+  filterFields?: ExtractFieldPathsWithConvexSystemFields<DocumentType>[]
+}
+```
+
+Example:
+```typescript
+const PostService = defineService(schema)
+  .name('posts')
+  .searchIndex('by_content', {
+    searchField: 'content',
+    filterFields: ['published', 'authorId']
+  })
+```
+
+### `.vectorIndex(name: string, config: VectorIndexConfig)`
+
+Creates a vector index for semantic search and AI applications.
+
+**Parameters:**
+- `name`: Index name
+- `config.vectorField`: Field containing the vector array
+- `config.dimensions`: Number of vector dimensions
+- `config.filterFields`: Optional fields for filtering
+
+**Returns:** Service builder instance
+
+**Source:** [`src/service.ts:134-158`](https://github.com/tristendillon/convex-service/blob/main/src/service.ts#L134-L158)
+
+```typescript
+interface VectorIndexConfig<DocumentType> {
+  vectorField: ExtractFieldPathsWithConvexSystemFields<DocumentType>
+  dimensions: number
+  filterFields?: ExtractFieldPathsWithConvexSystemFields<DocumentType>[]
+}
+```
+
+Example:
+```typescript
+const DocumentService = defineService(schema)
+  .name('documents')
+  .vectorIndex('by_embedding', {
+    vectorField: 'embedding',
+    dimensions: 1536,
+    filterFields: ['published']
+  })
+```
+
+### `.default(field: string, value: DefaultValue)`
+
+Sets default values for fields.
+
+**Parameters:**
+- `field`: Field name to set default for
+- `value`: Default value (static, function, or dynamic function)
+
+**Returns:** Service builder instance
+
+**Source:** [`src/service.ts:161-167`](https://github.com/tristendillon/convex-service/blob/main/src/service.ts#L161-L167)
+
+**Default Value Types:**
+```typescript
+type DefaultValue = 
+  | any                           // Static value
+  | (() => any)                   // Function called once per operation
+  | ((data: any) => any)          // Dynamic function receiving input data
+```
+
+Example:
+```typescript
+const UserService = defineService(schema)
+  .name('users')
+  .default('age', 18)                           // Static default
+  .default('isActive', true)                    // Boolean default  
+  .default('joinedAt', () => Date.now())        // Function default
+  .default('displayName', (data) => data.username)  // Dynamic default
+```
+
+### `.unique(field: string)`
+### `.unique(fields: string[], onConflict?: ConflictResolution)`
+
+Defines unique constraints with optional conflict resolution.
+
+**Parameters:**
+- `field`: Single field for uniqueness (first overload)
+- `fields`: Array of fields for composite uniqueness (second overload)
+- `onConflict`: Conflict resolution strategy ('fail' | 'replace')
+
+**Returns:** Service builder instance
+
+**Source:** [`src/service.ts:169-194`](https://github.com/tristendillon/convex-service/blob/main/src/service.ts#L169-L194)
+
+**Types:**
+```typescript
+type ConflictResolution = 'fail' | 'replace'
+
+// 'fail' (default): Throw UniqueConstraintError on violation
+// 'replace': Replace existing record with new data
+```
+
+**Effects:**
+- Automatically creates an index for the constraint
+- Enables uniqueness validation during operations
+- Provides conflict resolution strategies
+
+Example:
+```typescript
+const UserService = defineService(schema)
+  .name('users')
+  .unique('email')                              // Single field, fail on conflict
+  .unique('username')                           // Another unique field
+  .unique(['firstName', 'lastName'], 'replace') // Composite unique, replace on conflict
+```
+
+### `.relation(field: string, table: string, onDelete: DeletePolicy)`
+
+Defines foreign key relationships between tables.
+
+**Parameters:**
+- `field`: Foreign key field in current table
+- `table`: Target table being referenced
+- `onDelete`: Deletion policy ('cascade' | 'fail')
+
+**Returns:** Service builder instance
+
+**Source:** [`src/service.ts:209-222`](https://github.com/tristendillon/convex-service/blob/main/src/service.ts#L209-L222)
+
+**Types:**
+```typescript
+type DeletePolicy = 'cascade' | 'fail'
+
+// 'cascade': Delete related records when parent is deleted
+// 'fail': Prevent parent deletion if related records exist
+```
+
+**Effects:**
+- Automatically creates an index on the foreign key field
+- Enables referential integrity enforcement
+- Provides cascading delete functionality
+
+Example:
+```typescript
+const PostService = defineService(schema)
+  .name('posts')
+  .relation('authorId', 'users', 'cascade')     // Delete posts when user deleted
+  .relation('categoryId', 'categories', 'fail') // Prevent category deletion if posts exist
+```
+
+### `.validate()`
+### `.validate(schema: ZodSchema)`
+### `.validate(fn: ValidationFunction)`
+
+Enables validation for the service with optional custom validation.
+
+**Parameters:**
+- No parameters: Use original Zod schema for validation
+- `schema`: Custom Zod schema for validation
+- `fn`: Custom validation function with context access
+
+**Returns:** Service builder instance
+
+**Source:** [`src/service.ts:195-206`](https://github.com/tristendillon/convex-service/blob/main/src/service.ts#L195-L206)
+
+**Types:**
+```typescript
+type ValidationFunction = (
+  ctx: GenericMutationCtx<GenericDataModel>,
+  tableName: string,
+  data: any
+) => Promise<void>
+```
+
+**Key Point:** Only services with `.validate()` will perform validation during operations.
+
+Example:
+```typescript
+// Use original schema
+const UserService = defineService(schema)
+  .name('users')
+  .validate()
+
+// Custom schema
+const UserService = defineService(baseSchema)
+  .name('users')
+  .validate(z.object({
+    username: z.string().min(3),
+    email: z.string().email(),
+  }))
+
+// Custom function
+const UserService = defineService(schema)
+  .name('users')
+  .validate(async (ctx, tableName, data) => {
+    const existing = await ctx.db
+      .query('users')
+      .filter(q => q.eq(q.field('email'), data.email))
+      .first()
+    
+    if (existing) {
+      throw new Error('Email already exists')
+    }
+  })
+```
+
+### `.register()`
+
+Converts the service builder into a registered service definition.
+
+**Returns:** Registered service definition
+
+**Source:** [`src/service.ts:301-323`](https://github.com/tristendillon/convex-service/blob/main/src/service.ts#L301-L323)
+
+**Output includes:**
+- All service configuration (indexes, constraints, relations, etc.)
+- Type information for mutations
+- Validation metadata
+
+Example:
+```typescript
+const UserService = defineService(schema)
+  .name('users')
+  .validate()
+
+export const ServiceSchema = defineServiceSchema({
+  users: UserService.register()  // Convert to registered definition
+}).register()
+```
+
+## Service Builder Types
+
+### Generated Types
+
+Each service builder provides several auto-generated types:
+
+```typescript
+const UserService = defineService(
+  z.object({
+    name: z.string(),
+    email: z.string(),
+    age: z.number(),
+  })
+).name('users').default('age', 18)
+
+// Access generated types
+type UserValidator = typeof UserService.validator         // Convex validator
+type UserArgs = typeof UserService.args                  // All fields required
+type UserArgsOptional = typeof UserService.argsWithoutDefaults // Defaults optional
+type UserSchema = typeof UserService.schema              // Zod schema with system fields
+```
+
+### Field Path Types
+
+Field paths are type-checked against the schema:
+
+```typescript
+type ExtractFieldPathsWithConvexSystemFields<T> = /* Complex type that extracts valid field paths */
+
+// Usage in builder methods
+.index('by_name', ['name'])      // ✅ 'name' is valid
+.index('by_invalid', ['invalid']) // ❌ TypeScript error
+```
+
+## Mutation Factory
+
+### `CreateServiceMutation<DataModel>(services: ServiceSchema)`
+
+Creates a mutation factory with enhanced database operations.
+
+**Parameters:**
+- `services`: Registered service schema
+
+**Returns:** Enhanced mutation function
+
+**Source:** [`src/mutation.ts:8-24`](https://github.com/tristendillon/convex-service/blob/main/src/mutation.ts#L8-L24)
+
+Example:
+```typescript
+import { CreateServiceMutation } from 'convex-service'
+import { DataModel } from './_generated/dataModel'
+import { ServiceSchema } from './schema'
+
+const mutation = CreateServiceMutation<DataModel>(ServiceSchema.services)
+
+export const createUser = mutation({
+  args: ServiceSchema.services.users.args,
+  handler: async (ctx, args) => {
+    // ctx.db has enhanced operations
+    const userId = await ctx.db
+      .insert('users')
+      .one(args)
+      .validate()
+      .execute()
+    
+    return userId
+  },
+})
+```
+
+## Error Types
+
+### ValidationError
+
+Thrown when schema validation fails.
+
+**Source:** [`src/errors.ts`](https://github.com/tristendillon/convex-service/blob/main/src/errors.ts#L7-L11)
+
+**Properties:**
+- `message`: Validation error message
+- `cause?`: Original Zod error details
+
+### UniqueConstraintError
+
+Thrown when unique constraint violations occur.
+
+**Properties:**
+- `message`: Error description
+- `constraint`: Name of violated constraint
+- `field`: Field(s) causing violation
+- `value`: Duplicate value(s)
+
+### DocumentNotFoundError
+
+Thrown when trying to update/delete non-existent records.
+
+**Properties:**
+- `message`: Error description
+- `id`: The ID that was not found
+
+### ConvexSQLError
+
+General database operation errors.
+
+**Properties:**
+- `message`: Error description
+- `operation`: The operation that failed
+
+## Database Operation Types
+
+### Insert Operations
+
+```typescript
+interface InsertOperationBuilder<T> {
+  withDefaults(): InsertOperationBuilder<T>
+  one(data: T): ValidatableOperation<Id<string>>
+  many(data: T[]): ValidatableOperation<Id<string>[]>
+}
+
+interface ValidatableOperation<T> {
+  validate(): ExecutableOperation<T>
+  execute(): Promise<T>
+}
+```
+
+### Replace Operations
+
+```typescript
+interface ReplaceOperationBuilder<T> {
+  withDefaults(): ReplaceOperationBuilder<T>
+  one(id: Id<string>, data: T): ValidatableOperation<Doc<string>>
+  many(items: {id: Id<string>, value: T}[]): ValidatableOperation<Doc<string>[]>
+}
+```
+
+### Patch Operations
+
+```typescript
+interface PatchOperationBuilder<T> {
+  one(id: Id<string>, data: Partial<T>): ValidatableOperation<Doc<string>>
+  many(items: {id: Id<string>, value: Partial<T>}[]): ValidatableOperation<Doc<string>[]>
+}
+```
+
+### Delete Operations
+
+```typescript
+interface DeleteOperationBuilder {
+  one(id: Id<string>): Promise<Id<string>>
+  many(ids: Id<string>[]): Promise<Id<string>[]>
+}
+```
+
+## Configuration Types
+
+### Index Configuration
+
+```typescript
+type Index<DocumentType> = ExtractFieldPathsWithConvexSystemFields<DocumentType>[]
+
+type SearchIndex<DocumentType> = {
+  searchField: ExtractFieldPathsWithConvexSystemFields<DocumentType>
+  filterFields: ExtractFieldPathsWithConvexSystemFields<DocumentType>[]
+}
+
+type VectorIndex<DocumentType> = {
+  vectorField: ExtractFieldPathsWithConvexSystemFields<DocumentType>
+  dimensions: number
+  filterFields: ExtractFieldPathsWithConvexSystemFields<DocumentType>[]
+}
+```
+
+### Constraint Configuration
+
+```typescript
+type UniqueField<DocumentType> = ExtractFieldPathsWithConvexSystemFields<DocumentType>
+
+type CompositeUniqueFields<DocumentType> = ExtractFieldPathsWithConvexSystemFields<DocumentType>[]
+
+type BaseOnConflict = 'fail' | 'replace'
+
+type BaseOnDelete = 'cascade' | 'fail'
+```
+
+### Service State
+
+```typescript
+interface BuilderState<DocumentType> {
+  defaults: Record<string, any>
+  uniques: Record<string, {
+    fields: string | string[]
+    onConflict: BaseOnConflict
+  }>
+  validate: any // Zod schema or validation function
+  relations: Record<string, {
+    path: string
+    table: string
+    onDelete: BaseOnDelete
+  }>
+}
+```
+
+## Next Steps
+
+<Cards>
+  <Card 
+    title="Database Operations API" 
+    description="Complete API reference for database operations"
+    href="/docs/api-reference/database-operations" 
+  />
+  <Card 
+    title="Error Types API" 
+    description="Detailed error type definitions and handling"
+    href="/docs/api-reference/error-types" 
+  />
+  <Card 
+    title="Type Definitions" 
+    description="Complete TypeScript type definitions"
+    href="/docs/api-reference/types" 
+  />
+  <Card 
+    title="Migration Guide" 
+    description="Migrate from standard Convex to Convex Service"
+    href="/docs/api-reference/migration" 
+  />
+</Cards>

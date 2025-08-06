@@ -1,0 +1,526 @@
+---
+title: Unique Constraints
+description: Master uniqueness validation, conflict resolution, and constraint handling
+---
+
+# Unique Constraints
+
+Unique constraints ensure data integrity by preventing duplicate values in specified fields. Convex Service provides flexible uniqueness validation with conflict resolution strategies and automatic indexing.
+
+## Defining Unique Constraints
+
+Unique constraints are defined using the [`.unique()`](https://github.com/tristendillon/convex-service/blob/main/src/service.ts#L169-L194) method:
+
+```typescript
+const UserService = defineService(
+  z.object({
+    username: z.string(),
+    email: z.string().email(),
+    firstName: z.string(),
+    lastName: z.string(),
+  })
+)
+.name('users')
+.unique('email')                              // Single field unique constraint
+.unique('username')                           // Another unique field
+.unique(['firstName', 'lastName'])            // Composite unique constraint
+```
+
+> **Example**: See unique constraints in [`test/src/convex/schema.ts:36`](https://github.com/tristendillon/convex-service/blob/main/test/src/convex/schema.ts#L36)
+
+## Single Field Constraints
+
+The simplest form ensures one field is unique across all records:
+
+```typescript
+const UserService = defineService(
+  z.object({
+    email: z.string().email(),
+    username: z.string(),
+  })
+)
+.name('users')
+.unique('email')      // Email must be unique
+.unique('username')   // Username must be unique
+```
+
+**What happens**:
+- Automatically creates an index on the field
+- Validates uniqueness during insert/update operations
+- Throws `UniqueConstraintError` on violations
+
+## Composite Unique Constraints
+
+Multiple fields can form a composite unique constraint:
+
+```typescript
+const UserService = defineService(
+  z.object({
+    firstName: z.string(),
+    lastName: z.string(), 
+    organizationId: z.string(),
+  })
+)
+.name('users')
+.unique(['firstName', 'lastName'])                    // Name combination must be unique
+.unique(['firstName', 'lastName', 'organizationId'])  // Unique within organization
+```
+
+**Behavior**:
+- The **combination** of fields must be unique
+- Individual fields can have duplicates
+- Creates composite index on all fields
+
+## Conflict Resolution Strategies
+
+### Default: Fail on Conflict
+
+By default, unique constraint violations throw an error:
+
+```typescript
+const UserService = defineService(schema)
+  .name('users')
+  .unique('email')  // Default: fail on conflict
+
+export const createUser = mutation({
+  args: UserService.args,
+  handler: async (ctx, args) => {
+    try {
+      const userId = await ctx.db
+        .insert('users')
+        .one(args)
+        .validate()  // Throws UniqueConstraintError on duplicate email
+        .execute()
+      return userId
+    } catch (error) {
+      if (error instanceof UniqueConstraintError) {
+        return { error: 'Email already exists' }
+      }
+      throw error
+    }
+  },
+})
+```
+
+### Replace on Conflict
+
+Automatically replace existing records on constraint violation:
+
+```typescript
+const UserService = defineService(schema)
+  .name('users')
+  .unique('email', 'replace')                    // Replace on email conflict
+  .unique(['firstName', 'lastName'], 'replace')  // Replace on name conflict
+
+export const upsertUser = mutation({
+  args: UserService.args,
+  handler: async (ctx, args) => {
+    // If email exists, replaces the existing user
+    // If firstName+lastName exists, replaces that user
+    const userId = await ctx.db
+      .insert('users')
+      .one(args)
+      .validate()  // Performs replacement instead of failing
+      .execute()
+
+    return userId
+  },
+})
+```
+
+## Unique Constraint Validation
+
+### Insert Operations
+
+Uniqueness is validated during insert operations:
+
+```typescript
+// This will check email uniqueness before inserting
+const userId = await ctx.db
+  .insert('users')
+  .one({ email: 'user@example.com', username: 'user123' })
+  .validate()  // Checks all unique constraints
+  .execute()
+```
+
+### Update Operations
+
+Updates also validate uniqueness constraints:
+
+```typescript
+// Changing email validates the new email is unique
+const user = await ctx.db
+  .patch('users')
+  .one(userId, { email: 'newemail@example.com' })
+  .validate()  // Validates uniqueness of new email
+  .execute()
+
+// Replacing validates all fields
+const user = await ctx.db
+  .replace('users')
+  .one(userId, { email: 'new@example.com', username: 'newuser' })
+  .validate()  // Validates all unique constraints
+  .execute()
+```
+
+### Batch Operations
+
+Batch operations validate uniqueness across the entire batch:
+
+```typescript
+export const createManyUsers = mutation({
+  args: v.object({
+    users: v.array(UserService.args),
+  }),
+  handler: async (ctx, args) => {
+    // Validates uniqueness within the batch AND against existing records
+    const userIds = await ctx.db
+      .insert('users')
+      .many(args.users)
+      .validate()  // Comprehensive uniqueness checking
+      .execute()
+
+    return userIds
+  },
+})
+```
+
+## Performance Considerations
+
+### Automatic Indexing
+
+Unique constraints automatically create indexes:
+
+```typescript
+const UserService = defineService(schema)
+  .name('users')
+  .unique('email')                    // Creates index: by_email
+  .unique(['firstName', 'lastName'])  // Creates index: by_firstName_lastName
+```
+
+**Index Benefits**:
+- Fast uniqueness lookups during validation
+- Efficient queries on unique fields
+- Automatic index name generation and sanitization
+
+### Validation Overhead
+
+Uniqueness validation requires database queries:
+
+```typescript
+// Each unique constraint adds validation overhead
+const ExpensiveService = defineService(schema)
+  .name('users')
+  .unique('email')      // 1 database query to check uniqueness
+  .unique('username')   // 1 more database query
+  .unique('phone')      // 1 more database query
+  .validate()
+
+// Without validation, no uniqueness checking
+const FastService = defineService(schema)
+  .name('users')
+  .unique('email')      // Index created, but no validation overhead
+  // No .validate() call
+```
+
+### Batch Validation Efficiency
+
+Batch operations optimize uniqueness checking:
+
+```typescript
+// Both approaches work - Convex handles validation gracefully in either case
+for (const user of users) {
+  await ctx.db.insert('users').one(user).validate().execute()
+}
+
+// ✅ Cleaner API - batch validation in a single call
+const userIds = await ctx.db
+  .insert('users')
+  .many(users)
+  .validate()  // Single pass validation for all records
+  .execute()
+```
+
+## Advanced Patterns
+
+### Conditional Uniqueness
+
+Implement business-specific uniqueness rules:
+
+```typescript
+const UserService = defineService(
+  z.object({
+    email: z.string().email(),
+    organizationId: z.string(),
+    isActive: z.boolean(),
+    temporaryId: z.string().optional(),
+  })
+)
+.name('users')
+.unique(['email', 'organizationId'])  // Email unique within organization
+.validate(async (ctx, tableName, data) => {
+  // Custom uniqueness: only active users need unique emails globally
+  if (data.isActive) {
+    const existingActiveUser = await ctx.db
+      .query('users')
+      .filter(q => 
+        q.and(
+          q.eq(q.field('email'), data.email),
+          q.eq(q.field('isActive'), true)
+        )
+      )
+      .first()
+    
+    if (existingActiveUser) {
+      throw new Error('Email already in use by active user')
+    }
+  }
+})
+```
+
+### Soft Uniqueness
+
+Allow "soft" duplicates with business logic:
+
+```typescript
+const ProductService = defineService(
+  z.object({
+    sku: z.string(),
+    isDeleted: z.boolean(),
+    version: z.number(),
+  })
+)
+.name('products')
+.default('isDeleted', false)
+.default('version', 1)
+.validate(async (ctx, tableName, data) => {
+  // SKU only needs to be unique among non-deleted products
+  const existingProduct = await ctx.db
+    .query('products')
+    .filter(q => 
+      q.and(
+        q.eq(q.field('sku'), data.sku),
+        q.eq(q.field('isDeleted'), false)
+      )
+    )
+    .first()
+  
+  if (existingProduct) {
+    throw new Error('SKU already exists')
+  }
+})
+```
+
+### Case-Insensitive Uniqueness
+
+Implement case-insensitive unique constraints:
+
+```typescript
+const UserService = defineService(
+  z.object({
+    username: z.string(),
+    email: z.string().email(),
+  })
+)
+.name('users')
+.validate(async (ctx, tableName, data) => {
+  // Case-insensitive email uniqueness
+  const existingUser = await ctx.db
+    .query('users')
+    .filter(q => q.eq(q.field('email'), data.email.toLowerCase()))
+    .first()
+  
+  if (existingUser) {
+    throw new Error('Email already exists (case-insensitive)')
+  }
+  
+  // Case-insensitive username uniqueness
+  const existingUsername = await ctx.db
+    .query('users')
+    .collect()
+    .then(users => 
+      users.find(u => u.username.toLowerCase() === data.username.toLowerCase())
+    )
+  
+  if (existingUsername) {
+    throw new Error('Username already exists (case-insensitive)')
+  }
+})
+```
+
+## Error Handling
+
+Handle unique constraint violations gracefully:
+
+```typescript
+import { UniqueConstraintError } from 'convex-service'
+
+export const createUser = mutation({
+  args: UserService.args,
+  handler: async (ctx, args) => {
+    try {
+      const userId = await ctx.db
+        .insert('users')
+        .one(args)
+        .validate()
+        .execute()
+
+      return { success: true, userId }
+    } catch (error) {
+      if (error instanceof UniqueConstraintError) {
+        // Handle specific constraint violations
+        if (error.message.includes('email')) {
+          return { success: false, error: 'Email already registered' }
+        }
+        if (error.message.includes('username')) {
+          return { success: false, error: 'Username taken' }
+        }
+        return { success: false, error: 'Duplicate value detected' }
+      }
+      throw error
+    }
+  },
+})
+```
+
+## Composite Constraint Examples
+
+### User Profiles
+
+```typescript
+const ProfileService = defineService(
+  z.object({
+    userId: z.string(),
+    platform: z.enum(['twitter', 'github', 'linkedin']),
+    handle: z.string(),
+  })
+)
+.name('profiles')
+.unique(['userId', 'platform'])    // One profile per platform per user
+.unique(['platform', 'handle'])    // Handle unique within platform
+```
+
+### Time-Series Data
+
+```typescript
+const MetricService = defineService(
+  z.object({
+    entityId: z.string(),
+    metricType: z.string(),
+    timestamp: z.number(),
+    value: z.number(),
+  })
+)
+.name('metrics')
+.unique(['entityId', 'metricType', 'timestamp'])  // One metric per entity per time
+.index('by_entity_type', ['entityId', 'metricType'])
+```
+
+### Multi-Tenant Applications
+
+```typescript
+const UserService = defineService(
+  z.object({
+    email: z.string().email(),
+    tenantId: z.string(),
+    role: z.string(),
+  })
+)
+.name('users')
+.unique(['email', 'tenantId'])  // Email unique within tenant
+.unique(['tenantId', 'role'])   // One user per role per tenant (if needed)
+```
+
+## Type Safety
+
+Unique constraints are fully type-safe:
+
+```typescript
+const UserService = defineService(
+  z.object({
+    email: z.string(),
+    username: z.string(),
+    age: z.number(),
+  })
+)
+.name('users')
+.unique('email')            // ✅ 'email' exists in schema
+.unique('username')         // ✅ 'username' exists in schema
+.unique('invalid')          // ❌ TypeScript error - field doesn't exist
+.unique(['email', 'age'])   // ✅ Both fields exist
+.unique(['email', 'fake'])  // ❌ TypeScript error - 'fake' doesn't exist
+```
+
+## Best Practices
+
+### Constraint Design
+
+**✅ Good practices**:
+- Use unique constraints for natural identifiers (email, username, SKU)
+- Prefer composite constraints for business relationships
+- Always validate uniqueness when constraints are defined
+- Handle constraint violations gracefully in mutations
+
+**❌ Avoid**:
+- Too many unique constraints on one table (performance impact)
+- Unique constraints on frequently changing fields
+- Forgetting to handle `UniqueConstraintError` in mutations
+
+### Performance Optimization
+
+1. **Index Strategy**: Unique constraints create indexes automatically
+2. **Validation Timing**: Only validate when `.validate()` is called
+3. **Batch Operations**: Use batch ops for multiple records with unique constraints
+4. **Field Selection**: Only include necessary fields in composite constraints
+
+### Error User Experience
+
+Provide helpful error messages:
+
+```typescript
+export const createUser = mutation({
+  args: UserService.args,
+  handler: async (ctx, args) => {
+    try {
+      return await ctx.db.insert('users').one(args).validate().execute()
+    } catch (error) {
+      if (error instanceof UniqueConstraintError) {
+        // Parse the error to provide specific feedback
+        if (error.constraint === 'by_email') {
+          return { error: 'This email address is already registered. Try logging in instead.' }
+        }
+        if (error.constraint === 'by_username') {
+          return { error: 'This username is taken. Please choose another.' }
+        }
+        return { error: 'Some information conflicts with existing data.' }
+      }
+      throw error
+    }
+  },
+})
+```
+
+## Next Steps
+
+<Cards>
+  <Card 
+    title="Error Handling" 
+    description="Master error handling patterns for constraints"
+    href="/docs/advanced/error-handling" 
+  />
+  <Card 
+    title="Relations" 
+    description="Combine constraints with foreign key relationships"
+    href="/docs/advanced/relations" 
+  />
+  <Card 
+    title="Database Operations" 
+    description="Apply constraints in insert, update, and batch operations"
+    href="/docs/database-operations/insert-operations" 
+  />
+  <Card 
+    title="API Reference" 
+    description="Complete unique constraint API reference"
+    href="/docs/api-reference/service-builder" 
+  />
+</Cards>

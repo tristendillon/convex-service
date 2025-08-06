@@ -1,13 +1,151 @@
 ---
-title: Hello World
-description: Your first document
+title: Convex Service
+description: Enhanced Convex schemas with Zod validation and fluent database operations
 ---
 
-Welcome to the docs! You can start writing documents in `/content/docs`.
+# Convex Service
 
-## What is Next?
+A TypeScript package that enhances Convex with Zod schema validation and provides a fluent builder pattern for database operations with optional validation, unique constraints, relations, and more.
+
+## Features
+
+- 🔥 **Fluent Builder API**: Define schemas with a chainable, intuitive interface
+- ⚡ **Optional Validation**: Add validation only when you need it - zero performance cost otherwise  
+- 🛡️ **Type Safety**: Full TypeScript support with excellent IntelliSense
+- 🔗 **Relations**: Define foreign keys with cascade/fail deletion policies
+- ✨ **Unique Constraints**: Handle conflicts with replace or fail strategies
+- 📝 **Default Values**: Set field defaults with functions or static values
+- 🔍 **Advanced Indexing**: Support for search and vector indexes
+- 🚀 **Batch Operations**: Efficient bulk inserts, updates, and deletes
+
+## Quick Start
+
+```typescript
+import { defineService, defineServiceSchema, CreateServiceMutation } from 'convex-service'
+import { z } from 'zod'
+
+// Define a service with validation
+const UserService = defineService(
+  z.object({
+    name: z.string().min(1),
+    email: z.string().email(),
+    age: z.number().min(18),
+    isActive: z.boolean(),
+  })
+)
+  .name('users')
+  .default('age', 18)
+  .default('isActive', true)
+  .unique('email')
+  .validate() // Enable validation for this service
+
+// Register your schema
+export const ServiceSchema = defineServiceSchema({
+  users: UserService.register(),
+}).register()
+
+// Create mutations with validation
+const mutation = CreateServiceMutation<DataModel>(ServiceSchema.services)
+
+export const createUser = mutation({
+  args: ServiceSchema.services.users.argsWithoutDefaults,
+  handler: async (ctx, args) => {
+    // Validation only runs because UserService has .validate()
+    const userId = await ctx.db
+      .insert('users')
+      .withDefaults()
+      .one(args)
+      .validate() // This actually validates
+      .execute()
+    return userId
+  },
+})
+```
+
+## Core Concepts
 
 <Cards>
-  <Card title="Learn more about Next.js" href="https://nextjs.org/docs" />
-  <Card title="Learn more about Fumadocs" href="https://fumadocs.vercel.app" />
+  <Card 
+    title="Service Builder" 
+    description="Learn how to define services with the fluent builder API"
+    href="/docs/service-builder/defining-services" 
+  />
+  <Card 
+    title="Database Operations" 
+    description="Understand insert, replace, patch, and delete operations"
+    href="/docs/database-operations/insert-operations" 
+  />
+  <Card 
+    title="Validation System" 
+    description="Learn when and how validation works in your services"
+    href="/docs/service-builder/validation-system" 
+  />
+  <Card 
+    title="API Reference" 
+    description="Complete reference for all builders and methods"
+    href="/docs/api-reference/service-builder" 
+  />
 </Cards>
+
+## Why Convex Service?
+
+**Standard Convex** requires you to define schemas and handle validation manually:
+
+```typescript
+// Standard Convex - manual validation, no type safety for operations
+export default defineSchema({
+  users: defineTable({
+    name: v.string(),
+    email: v.string(), // No email validation
+    age: v.number(),   // No min age validation
+    isActive: v.boolean(),
+  }).index("by_email", ["email"])
+})
+
+export const createUser = mutation({
+  args: { /* manual args definition */ },
+  handler: async (ctx, args) => {
+    // Manual validation required
+    if (!args.email.includes('@')) throw new Error('Invalid email')
+    if (args.age < 18) throw new Error('Must be 18+')
+    
+    return await ctx.db.insert('users', args)
+  }
+})
+```
+
+**Convex Service** provides rich validation, type safety, and a fluent API:
+
+```typescript
+// Convex Service - automatic validation, full type safety
+const UserService = defineService(
+  z.object({
+    name: z.string().min(1),
+    email: z.string().email(), // Built-in email validation
+    age: z.number().min(18),   // Built-in age validation  
+    isActive: z.boolean(),
+  })
+)
+  .name('users')
+  .default('isActive', true)
+  .unique('email')
+  .validate() // Opt-in validation
+
+export const createUser = mutation({
+  args: UserService.argsWithoutDefaults, // Auto-generated types
+  handler: async (ctx, args) => {
+    // Validation happens automatically
+    const userId = await ctx.db
+      .insert('users')
+      .withDefaults()
+      .one(args)
+      .validate()
+      .execute()
+    return userId
+  }
+})
+```
+
+## Next Steps
+
+Ready to get started? Check out our [Getting Started Guide](/docs/getting-started) or dive into the [Service Builder documentation](/docs/service-builder/defining-services).

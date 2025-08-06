@@ -1,0 +1,387 @@
+---
+title: Insert Operations
+description: Learn how to insert records with validation, defaults, and batch operations
+---
+
+# Insert Operations
+
+Insert operations create new records in your tables. Convex Service enhances standard Convex inserts with validation, default value application, uniqueness checking, and batch operations.
+
+## Basic Insert
+
+The simplest insert operation:
+
+```typescript
+export const createUser = mutation({
+  args: UserService.args,
+  handler: async (ctx, args) => {
+    const userId = await ctx.db
+      .insert('users')
+      .one(args) // Insert one record
+      .execute() // Execute without validation
+
+    return userId
+  },
+})
+```
+
+## Insert with Validation
+
+For services with [`.validate()`](https://github.com/tristendillon/convex-service/blob/main/src/service.ts#L195-L206) enabled, add validation to the operation:
+
+```typescript
+export const createValidatedUser = mutation({
+  args: UserService.args,
+  handler: async (ctx, args) => {
+    const userId = await ctx.db
+      .insert('users')
+      .one(args)
+      .validate() // Validate before inserting
+      .execute()
+
+    return userId
+  },
+})
+```
+
+> **Key Point**: `.validate()` only works if the service definition includes `.validate()`. Otherwise, it's a no-op.
+
+> **Example**: See this pattern in [`test/src/convex/myFunctions.ts:10-16`](https://github.com/tristendillon/convex-service/blob/main/test/src/convex/myFunctions.ts#L10-L16)
+
+## Insert with Defaults
+
+Apply default values using `.withDefaults()`:
+
+```typescript
+// Service with defaults defined
+const UserService = defineService(schema)
+  .name('users')
+  .default('age', 18)
+  .default('isActive', true)
+  .default('joinedAt', () => Date.now())
+  .validate()
+
+export const createUserWithDefaults = mutation({
+  args: UserService.argsWithoutDefaults, // Defaults are now optional in args
+  handler: async (ctx, args) => {
+    const userId = await ctx.db
+      .insert('users')
+      .withDefaults() // Apply default values
+      .one(args)
+      .validate()
+      .execute()
+
+    return userId
+  },
+})
+```
+
+> **Example**: See the complete pattern in [`test/src/convex/myFunctions.ts:32-43`](https://github.com/tristendillon/convex-service/blob/main/test/src/convex/myFunctions.ts#L32-L43)
+
+**Default Value Types**:
+
+- **Static**: `42`, `"default"`, `true`
+- **Function**: `() => Date.now()`, `() => generateId()`
+- **Dynamic**: `(data) => data.firstName + " " + data.lastName`
+
+## Operation Chain Pattern
+
+The insert operation follows a builder pattern:
+
+```typescript
+ctx.db
+  .insert('tableName') // Start insert operation
+  .withDefaults() // Optional: apply defaults
+  .one(data) // Insert single record
+  .validate() // Optional: validate
+  .execute() // Execute and return ID
+```
+
+> **Implementation**: The insert builder is implemented in [`src/writer/insert.ts:12-50`](https://github.com/tristendillon/convex-service/blob/main/src/writer/insert.ts#L12-50)
+
+## Batch Insert Operations
+
+Insert multiple records efficiently:
+
+```typescript
+export const createManyUsers = mutation({
+  args: v.object({
+    users: v.array(UserService.args),
+  }),
+  handler: async (ctx, args) => {
+    const userIds = await ctx.db
+      .insert('users')
+      .many(args.users) // Insert multiple records
+      .validate() // Validates each record
+      .execute()
+
+    return userIds
+  },
+})
+```
+
+> **Example**: Complete batch insert in [`test/src/convex/myFunctions.ts:18-30`](https://github.com/tristendillon/convex-service/blob/main/test/src/convex/myFunctions.ts#L18-L30)
+
+### Batch Insert with Defaults
+
+```typescript
+export const createManyUsersWithDefaults = mutation({
+  args: v.object({
+    users: v.array(UserService.argsWithoutDefaults),
+  }),
+  handler: async (ctx, args) => {
+    const userIds = await ctx.db
+      .insert('users')
+      .withDefaults() // Apply defaults to each record
+      .many(args.users)
+      .validate() // Validate each record
+      .execute()
+
+    return userIds
+  },
+})
+```
+
+> **Example**: See batch inserts with defaults at [`test/src/convex/myFunctions.ts:45-58`](https://github.com/tristendillon/convex-service/blob/main/test/src/convex/myFunctions.ts#L45-L58)
+
+## Unique Constraint Handling
+
+When your service has unique constraints, inserts automatically handle conflicts:
+
+```typescript
+const UserService = defineService(schema)
+  .name('users')
+  .unique('email') // Unique constraint
+  .unique(['firstName', 'lastName'], 'replace') // Composite unique with replacement
+  .validate()
+
+export const createUser = mutation({
+  args: UserService.args,
+  handler: async (ctx, args) => {
+    try {
+      const userId = await ctx.db.insert('users').one(args).validate().execute()
+
+      return userId
+    } catch (error) {
+      if (error instanceof UniqueConstraintError) {
+        // Handle unique constraint violation
+        return { error: 'Email already exists' }
+      }
+      throw error
+    }
+  },
+})
+```
+
+**Unique Constraint Behaviors**:
+
+- `'fail'` (default): Throws `UniqueConstraintError`
+- `'replace'`: Replaces existing record with new data (conflict handling is only allowed on composite unqiues)
+
+> **Source**: Unique constraint handling is implemented in the [uniqueness validator](https://github.com/tristendillon/convex-service/blob/main/src/writer/insert.ts#L31-L44)
+
+## Error Handling
+
+Insert operations can throw several types of errors:
+
+```typescript
+import {
+  ValidationError,
+  UniqueConstraintError,
+  ConvexSQLError,
+} from 'convex-service'
+
+export const createUser = mutation({
+  args: UserService.args,
+  handler: async (ctx, args) => {
+    try {
+      return await ctx.db.insert('users').one(args).validate().execute()
+    } catch (error) {
+      if (error instanceof ValidationError) {
+        // Zod validation failed
+        return { error: `Validation failed: ${error.message}` }
+      }
+
+      if (error instanceof UniqueConstraintError) {
+        // Unique constraint violated
+        return { error: 'Record already exists' }
+      }
+
+      if (error instanceof ConvexSQLError) {
+        // Database operation failed
+        return { error: 'Database error occurred' }
+      }
+
+      throw error // Unknown error
+    }
+  },
+})
+```
+
+> **Error Types**: All error classes are defined in [`src/errors.ts`](https://github.com/tristendillon/convex-service/blob/main/src/errors.ts#L7-L11)
+
+## Performance Considerations
+
+### With vs Without Validation
+
+```typescript
+// Maximum performance - no validation overhead
+const fastUserId = await ctx.db.insert('users').one(data).execute() // Direct insert
+
+// With validation - includes Zod parsing and constraint checks
+const validatedUserId = await ctx.db
+  .insert('users')
+  .one(data)
+  .validate() // Adds validation overhead
+  .execute()
+```
+
+### Batch vs Individual Inserts
+
+```typescript
+for (const user of users) {
+  await ctx.db.insert('users').one(user).validate().execute()
+}
+
+const userIds = await ctx.db.insert('users').many(users).validate().execute()
+```
+
+Both ways will work the same! Under the hood convex will handle these both the same. The api is there for easier to read mutations...
+
+## Advanced Patterns
+
+### Conditional Validation
+
+```typescript
+export const createUser = mutation({
+  args: {
+    user: UserService.args,
+    validateInput: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    let operation = ctx.db.insert('users').one(args.user)
+
+    if (args.validateInput !== false) {
+      operation = operation.validate()
+    }
+
+    return await operation.execute()
+  },
+})
+```
+
+### Insert with Relations
+
+```typescript
+// Service with foreign key relationship
+const PostService = defineService(schema)
+  .name('posts')
+  .relation('authorId', 'users', 'cascade')
+  .validate()
+
+export const createPost = mutation({
+  args: PostService.args,
+  handler: async (ctx, args) => {
+    // Relation validation happens automatically
+    const postId = await ctx.db
+      .insert('posts')
+      .one(args)
+      .validate() // Checks that authorId references valid user
+      .execute()
+
+    return postId
+  },
+})
+```
+
+### Custom Validation with Database Access
+
+```typescript
+const UserService = defineService(schema)
+  .name('users')
+  .validate(async (ctx, tableName, data) => {
+    // Custom validation with database queries
+    const existingUser = await ctx.db
+      .query('users')
+      .filter((q) => q.eq(q.field('email'), data.email))
+      .first()
+
+    if (existingUser) {
+      throw new Error('Email already in use')
+    }
+
+    // Check business rules
+    if (data.role === 'admin' && data.age < 21) {
+      throw new Error('Admins must be at least 21')
+    }
+  })
+```
+
+## Type Safety
+
+Insert operations are fully type-safe:
+
+```typescript
+const UserService = defineService(
+  z.object({
+    name: z.string(),
+    email: z.string(),
+    age: z.number(),
+  })
+)
+  .name('users')
+  .default('age', 18)
+
+// TypeScript knows the exact argument types
+export const createUser = mutation({
+  args: UserService.args, // { name: string, email: string, age: number }
+  handler: async (ctx, args) => {
+    // TypeScript provides full autocomplete and error checking
+    const userId = await ctx.db
+      .insert('users')
+      .one(args) // Type-checked against service schema
+      .execute()
+
+    return userId // Type: string (Convex ID)
+  },
+})
+
+export const createUserWithDefaults = mutation({
+  args: UserService.argsWithoutDefaults, // { name: string, email: string, age?: number }
+  handler: async (ctx, args) => {
+    // age is optional because it has a default
+    const userId = await ctx.db
+      .insert('users')
+      .withDefaults() // TypeScript knows defaults will be applied
+      .one(args)
+      .execute()
+
+    return userId
+  },
+})
+```
+
+## Next Steps
+
+<Cards>
+  <Card
+    title="Replace Operations"
+    description="Learn how to replace existing records"
+    href="/docs/database-operations/replace-operations"
+  />
+  <Card
+    title="Patch Operations"
+    description="Update records with partial data"
+    href="/docs/database-operations/patch-operations"
+  />
+  <Card
+    title="Batch Operations"
+    description="Efficient bulk operations"
+    href="/docs/database-operations/batch-operations"
+  />
+  <Card
+    title="Error Handling"
+    description="Handle validation and constraint errors"
+    href="/docs/advanced/error-handling"
+  />
+</Cards>

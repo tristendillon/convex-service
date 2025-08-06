@@ -1,0 +1,260 @@
+---
+title: Getting Started
+description: Learn how to install and set up Convex Service in your project
+---
+
+# Getting Started
+
+Get up and running with Convex Service in minutes. This guide will walk you through installation, basic setup, and creating your first validated service.
+
+## Installation
+
+Install the package via npm or pnpm:
+
+```bash
+npm install convex-service
+# or
+pnpm add convex-service
+```
+
+### Peer Dependencies
+
+Convex Service requires these peer dependencies:
+
+```bash
+npm install convex convex-helpers zod
+# or  
+pnpm add convex convex-helpers zod
+```
+
+## Basic Setup
+
+### 1. Define Your First Service
+
+Create a service definition in your Convex schema file:
+
+```typescript
+// convex/schema.ts
+import { defineService, defineServiceSchema } from 'convex-service'
+import { defineSchema } from 'convex/server'
+import { z } from 'zod'
+
+// Define a simple user service
+const UserService = defineService(
+  z.object({
+    name: z.string().min(1, 'Name is required'),
+    email: z.string().email('Must be a valid email'),
+    age: z.number().min(13, 'Must be at least 13'),
+    isActive: z.boolean(),
+  })
+)
+  .name('users')                    // Table name
+  .default('age', 18)              // Default value
+  .default('isActive', true)       // Default value
+  .unique('email')                 // Email must be unique
+  .index('by_active', ['isActive']) // Create index
+  .validate()                      // Enable validation
+
+// Register the service schema
+export const ServiceSchema = defineServiceSchema({
+  users: UserService.register(),
+}).register()
+
+// Export for Convex
+export default defineSchema({
+  users: UserService,
+})
+```
+
+> **Key Point**: The [`.validate()`](https://github.com/tristendillon/convex-service/blob/main/src/service.ts#L195-L206) call is what enables validation. Without it, validation is completely disabled for performance.
+
+### 2. Create Your First Mutation
+
+Create a mutation that uses your service:
+
+```typescript
+// convex/users.ts
+import { CreateServiceMutation } from 'convex-service'
+import { DataModel } from './_generated/dataModel'
+import { ServiceSchema } from './schema'
+
+// Create a mutation factory with your service schema
+const mutation = CreateServiceMutation<DataModel>(ServiceSchema.services)
+
+export const createUser = mutation({
+  args: ServiceSchema.services.users.argsWithoutDefaults,
+  handler: async (ctx, args) => {
+    // Insert with defaults and validation
+    const userId = await ctx.db
+      .insert('users')
+      .withDefaults()      // Apply default values
+      .one(args)           // Insert one record
+      .validate()          // Validate (only works because service has .validate())
+      .execute()           // Execute the operation
+
+    return userId
+  },
+})
+```
+
+> **Reference**: This pattern is demonstrated in the test file at [`test/src/convex/myFunctions.ts:32-43`](https://github.com/tristendillon/convex-service/blob/main/test/src/convex/myFunctions.ts#L32-L43).
+
+### 3. Use Your Mutation
+
+Now you can call your mutation from your app:
+
+```typescript
+// In your React component or API route
+import { api } from '../convex/_generated/api'
+import { useMutation } from 'convex/react'
+
+function CreateUserForm() {
+  const createUser = useMutation(api.users.createUser)
+
+  const handleSubmit = async (formData) => {
+    try {
+      const userId = await createUser({
+        name: formData.name,
+        email: formData.email,
+        // age and isActive will use defaults
+        // email uniqueness will be enforced
+        // validation will run automatically
+      })
+      console.log('Created user:', userId)
+    } catch (error) {
+      console.error('Validation failed:', error.message)
+    }
+  }
+
+  // ... rest of component
+}
+```
+
+## Understanding Validation
+
+Convex Service has **optional validation** - it only runs when you explicitly enable it:
+
+### With Validation (Recommended)
+
+```typescript
+const ValidatedService = defineService(
+  z.object({
+    email: z.string().email(),
+    age: z.number().min(18),
+  })
+)
+  .name('users')
+  .validate() // ← This enables validation
+
+// In mutations:
+await ctx.db
+  .insert('users')
+  .one(data)
+  .validate() // ← This actually validates
+  .execute()
+```
+
+### Without Validation (Performance Mode)
+
+```typescript
+const FastService = defineService(
+  z.object({
+    email: z.string().email(), // Schema definition for types only
+    age: z.number().min(18),
+  })
+)
+  .name('users')
+  // No .validate() call = no validation overhead
+
+// In mutations:
+await ctx.db
+  .insert('users') 
+  .one(data)
+  .validate() // ← This is a no-op, does nothing
+  .execute()
+```
+
+> **Performance**: Services without `.validate()` have zero validation overhead - the validation chain becomes a pass-through.
+
+## What's Next?
+
+You now have a working Convex Service setup! Here's what to explore next:
+
+<Cards>
+  <Card 
+    title="Service Builder Methods" 
+    description="Learn all the builder methods like .index(), .unique(), .relation()"
+    href="/docs/service-builder/builder-methods" 
+  />
+  <Card 
+    title="Database Operations" 
+    description="Master insert, replace, patch, and delete operations"
+    href="/docs/database-operations/insert-operations" 
+  />
+  <Card 
+    title="Validation Deep Dive" 
+    description="Understand when and how validation works"
+    href="/docs/service-builder/validation-system" 
+  />
+  <Card 
+    title="Advanced Features" 
+    description="Explore relations, unique constraints, and batch operations"
+    href="/docs/advanced/relations" 
+  />
+</Cards>
+
+## Common Patterns
+
+Here are some common patterns you'll use:
+
+### Service with Relationships
+
+```typescript
+const PostService = defineService(
+  z.object({
+    title: z.string(),
+    content: z.string(),
+    authorId: z.string(), // Will be zid('users') in practice
+  })
+)
+  .name('posts')
+  .relation('authorId', 'users', 'cascade') // Delete posts when user is deleted
+  .index('by_author', ['authorId'])
+  .validate()
+```
+
+### Batch Operations
+
+```typescript
+export const createManyUsers = mutation({
+  args: { users: v.array(ServiceSchema.services.users.args) },
+  handler: async (ctx, args) => {
+    const userIds = await ctx.db
+      .insert('users')
+      .many(args.users)        // Insert multiple records
+      .validate()              // Validate all records
+      .execute()
+
+    return userIds
+  },
+})
+```
+
+### Update Operations
+
+```typescript
+export const updateUser = mutation({
+  args: { id: v.id('users'), updates: /* partial user object */ },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .patch('users')
+      .one(args.id, args.updates)
+      .validate()               // Validate the updates
+      .execute()
+
+    return user
+  },
+})
+```
+
+Ready to dive deeper? Check out the [Service Builder documentation](/docs/service-builder/defining-services) to learn about all available methods.

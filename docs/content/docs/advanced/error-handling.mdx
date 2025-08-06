@@ -1,0 +1,679 @@
+---
+title: Error Handling
+description: Master error types, handling patterns, and graceful failure strategies
+---
+
+# Error Handling
+
+Convex Service provides structured error types and comprehensive error handling patterns for validation failures, constraint violations, and database operations. Learn how to handle errors gracefully and provide good user experiences.
+
+## Error Types
+
+Convex Service defines several specific error types for different failure scenarios:
+
+```typescript
+import { 
+  ConvexSQLError,
+  ValidationError, 
+  UniqueConstraintError,
+  DocumentNotFoundError 
+} from 'convex-service'
+```
+
+> **Source**: All error types are defined in [`src/errors.ts`](https://github.com/tristendillon/convex-service/blob/main/src/errors.ts#L7-L11)
+
+### ValidationError
+
+Thrown when Zod schema validation fails during `.validate()` operations:
+
+```typescript
+export const createUser = mutation({
+  args: UserService.args,
+  handler: async (ctx, args) => {
+    try {
+      const userId = await ctx.db
+        .insert('users')
+        .one(args)
+        .validate()  // Can throw ValidationError for Zod schema failures
+        .execute()
+      return userId
+    } catch (error) {
+      if (error instanceof ValidationError) {
+        // Zod validation failed (e.g., invalid email format, string too short)
+        return { error: `Schema validation failed: ${error.message}` }
+      }
+      throw error
+    }
+  },
+})
+```
+
+**ValidationError scenarios**:
+- Invalid email formats (Zod schema validation)
+- String length violations (Zod schema validation)
+- Number range violations (Zod schema validation)  
+- Required field missing (Zod schema validation)
+- Type mismatches (string vs number, etc.)
+
+**Note**: Custom validation functions throw regular `Error` objects, not `ValidationError`.
+
+### Custom Validation Errors
+
+Custom validation functions in service definitions throw regular `Error` objects:
+
+```typescript
+const UserService = defineService(schema)
+  .name('users')
+  .validate(async (ctx, tableName, data) => {
+    const existingUser = await ctx.db
+      .query('users')
+      .filter(q => q.eq(q.field('email'), data.email))
+      .first()
+    
+    if (existingUser) {
+      throw new Error('Email already in use')  // Regular Error, not ValidationError
+    }
+  })
+
+export const createUser = mutation({
+  args: UserService.args,
+  handler: async (ctx, args) => {
+    try {
+      return await ctx.db.insert('users').one(args).validate().execute()
+    } catch (error) {
+      if (error instanceof ValidationError) {
+        // Zod schema validation failed
+        return { error: `Schema error: ${error.message}` }
+      }
+      if (error instanceof Error && error.message === 'Email already in use') {
+        // Custom validation failed
+        return { error: 'Email address already registered' }
+      }
+      throw error
+    }
+  },
+})
+```
+
+### UniqueConstraintError
+
+Thrown when unique constraint violations occur:
+
+```typescript
+const UserService = defineService(schema)
+  .name('users')
+  .unique('email')
+  .validate()
+
+export const createUser = mutation({
+  args: UserService.args,
+  handler: async (ctx, args) => {
+    try {
+      return await ctx.db.insert('users').one(args).validate().execute()
+    } catch (error) {
+      if (error instanceof UniqueConstraintError) {
+        // Email already exists
+        if (error.constraint === 'by_email') {
+          return { error: 'Email address already registered' }
+        }
+        return { error: 'Duplicate value detected' }
+      }
+      throw error
+    }
+  },
+})
+```
+
+**UniqueConstraintError properties**:
+- `constraint`: The name of the violated constraint
+- `field`: The field(s) that caused the violation
+- `value`: The duplicate value(s)
+
+### DocumentNotFoundError
+
+Thrown when trying to update/replace/delete a non-existent record:
+
+```typescript
+export const updateUser = mutation({
+  args: { id: v.id('users'), updates: /* partial */ },
+  handler: async (ctx, args) => {
+    try {
+      return await ctx.db
+        .patch('users')
+        .one(args.id, args.updates)
+        .validate()
+        .execute()
+    } catch (error) {
+      if (error instanceof DocumentNotFoundError) {
+        return { error: 'User not found' }
+      }
+      throw error
+    }
+  },
+})
+```
+
+### ConvexSQLError
+
+General database operation errors, including relation constraint violations:
+
+```typescript
+export const deleteCategory = mutation({
+  args: { id: v.id('categories') },
+  handler: async (ctx, args) => {
+    try {
+      const deletedId = await ctx.db.delete('categories').one(args.id)
+      return { success: true, deletedId }
+    } catch (error) {
+      if (error instanceof ConvexSQLError) {
+        // Likely a relation constraint violation (posts reference this category)
+        return { error: 'Cannot delete category - it\'s being used by existing posts' }
+      }
+      throw error
+    }
+  },
+})
+```
+
+## Comprehensive Error Handling Pattern
+
+Here's a complete error handling pattern for mutations:
+
+```typescript
+import { 
+  ConvexSQLError,
+  ValidationError, 
+  UniqueConstraintError,
+  DocumentNotFoundError 
+} from 'convex-service'
+
+export const createUser = mutation({
+  args: UserService.args,
+  handler: async (ctx, args) => {
+    try {
+      const userId = await ctx.db
+        .insert('users')
+        .one(args)
+        .validate()
+        .execute()
+
+      return { success: true, userId }
+    } catch (error) {
+      // Handle specific error types
+      if (error instanceof ValidationError) {
+        return { 
+          success: false, 
+          error: 'schema_validation_error',
+          message: 'Data does not match schema requirements',
+          details: error.message // Formatted Zod validation errors
+        }
+      }
+      
+      if (error instanceof Error && !error.constructor.name.includes('Convex')) {
+        // Custom validation errors from service .validate() functions
+        return { 
+          success: false, 
+          error: 'custom_validation_error',
+          message: error.message
+        }
+      }
+      
+      if (error instanceof UniqueConstraintError) {
+        return { 
+          success: false, 
+          error: 'duplicate_value',
+          message: `${error.field} already exists`,
+          field: error.field,
+          constraint: error.constraint
+        }
+      }
+      
+      if (error instanceof ConvexSQLError) {
+        return { 
+          success: false, 
+          error: 'database_error',
+          message: 'A database error occurred'
+        }
+      }
+      
+      // Re-throw unexpected errors for debugging
+      console.error('Unexpected error in createUser:', error)
+      throw error
+    }
+  },
+})
+```
+
+## Operation-Specific Error Handling
+
+### Insert Operations
+
+```typescript
+export const createPost = mutation({
+  args: PostService.args,
+  handler: async (ctx, args) => {
+    try {
+      return await ctx.db.insert('posts').one(args).validate().execute()
+    } catch (error) {
+      if (error instanceof ValidationError) {
+        // Check for specific validation failures
+        if (error.message.includes('authorId')) {
+          return { error: 'Invalid author specified' }
+        }
+        if (error.message.includes('title')) {
+          return { error: 'Title must be between 1-200 characters' }
+        }
+        return { error: 'Post data is invalid' }
+      }
+      
+      if (error instanceof UniqueConstraintError) {
+        if (error.constraint === 'by_slug') {
+          return { error: 'A post with this URL already exists' }
+        }
+      }
+      
+      throw error
+    }
+  },
+})
+```
+
+### Update Operations
+
+```typescript
+export const updatePost = mutation({
+  args: { id: v.id('posts'), updates: /* partial */ },
+  handler: async (ctx, args) => {
+    try {
+      return await ctx.db
+        .patch('posts')
+        .one(args.id, args.updates)
+        .validate()
+        .execute()
+    } catch (error) {
+      if (error instanceof DocumentNotFoundError) {
+        return { error: 'Post not found' }
+      }
+      
+      if (error instanceof ValidationError) {
+        return { error: `Update failed: ${error.message}` }
+      }
+      
+      if (error instanceof UniqueConstraintError) {
+        return { error: 'Update conflicts with existing data' }
+      }
+      
+      throw error
+    }
+  },
+})
+```
+
+### Delete Operations
+
+```typescript
+export const deleteUser = mutation({
+  args: { id: v.id('users') },
+  handler: async (ctx, args) => {
+    try {
+      const deletedId = await ctx.db.delete('users').one(args.id)
+      return { success: true, deletedId }
+    } catch (error) {
+      if (error instanceof DocumentNotFoundError) {
+        return { error: 'User not found' }
+      }
+      
+      if (error instanceof ConvexSQLError) {
+        // Could be relation constraint violation
+        return { error: 'Cannot delete user - they have associated data' }
+      }
+      
+      throw error
+    }
+  },
+})
+```
+
+### Batch Operations
+
+```typescript
+export const createManyUsers = mutation({
+  args: v.object({ users: v.array(UserService.args) }),
+  handler: async (ctx, args) => {
+    try {
+      const userIds = await ctx.db
+        .insert('users')
+        .many(args.users)
+        .validate()
+        .execute()
+
+      return { success: true, userIds, count: userIds.length }
+    } catch (error) {
+      if (error instanceof ValidationError) {
+        return { 
+          success: false, 
+          error: 'One or more users have invalid data',
+          message: error.message 
+        }
+      }
+      
+      if (error instanceof UniqueConstraintError) {
+        return { 
+          success: false, 
+          error: 'Duplicate users detected',
+          constraint: error.constraint 
+        }
+      }
+      
+      throw error
+    }
+  },
+})
+```
+
+## Custom Error Handling
+
+### Business Logic Errors
+
+Create custom error types for business-specific failures:
+
+```typescript
+class InsufficientPermissionsError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'InsufficientPermissionsError'
+  }
+}
+
+const PostService = defineService(postSchema)
+  .name('posts')
+  .validate(async (ctx, tableName, data) => {
+    // Custom business validation
+    const author = await ctx.db.get(data.authorId)
+    if (author && !author.canCreatePosts) {
+      throw new InsufficientPermissionsError('User not authorized to create posts')
+    }
+    
+    if (data.published && !author?.isVerified) {
+      throw new InsufficientPermissionsError('Only verified users can publish posts')
+    }
+  })
+
+export const createPost = mutation({
+  args: PostService.args,
+  handler: async (ctx, args) => {
+    try {
+      return await ctx.db.insert('posts').one(args).validate().execute()
+    } catch (error) {
+      if (error instanceof InsufficientPermissionsError) {
+        return { error: error.message, code: 'INSUFFICIENT_PERMISSIONS' }
+      }
+      
+      if (error instanceof ValidationError) {
+        return { error: 'Post validation failed', code: 'VALIDATION_ERROR' }
+      }
+      
+      throw error
+    }
+  },
+})
+```
+
+### Retry Logic
+
+Implement retry logic for transient failures:
+
+```typescript
+async function withRetry<T>(
+  operation: () => Promise<T>, 
+  maxRetries: number = 3
+): Promise<T> {
+  let lastError: Error
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await operation()
+    } catch (error) {
+      lastError = error as Error
+      
+      // Only retry on specific errors
+      if (error instanceof ConvexSQLError && attempt < maxRetries) {
+        // Wait before retrying
+        await new Promise(resolve => setTimeout(resolve, attempt * 1000))
+        continue
+      }
+      
+      throw error
+    }
+  }
+  
+  throw lastError!
+}
+
+export const createUserWithRetry = mutation({
+  args: UserService.args,
+  handler: async (ctx, args) => {
+    try {
+      return await withRetry(async () => {
+        return ctx.db.insert('users').one(args).validate().execute()
+      })
+    } catch (error) {
+      if (error instanceof ValidationError) {
+        return { error: 'User data is invalid' }
+      }
+      if (error instanceof UniqueConstraintError) {
+        return { error: 'Email already registered' }
+      }
+      return { error: 'Failed to create user after multiple attempts' }
+    }
+  },
+})
+```
+
+## Error Logging and Monitoring
+
+### Structured Error Logging
+
+```typescript
+function logError(operation: string, error: Error, context?: any) {
+  const errorInfo = {
+    operation,
+    errorType: error.constructor.name,
+    message: error.message,
+    timestamp: new Date().toISOString(),
+    context
+  }
+  
+  if (error instanceof UniqueConstraintError) {
+    errorInfo.constraint = error.constraint
+    errorInfo.field = error.field
+  }
+  
+  console.error('Operation failed:', errorInfo)
+}
+
+export const createUser = mutation({
+  args: UserService.args,
+  handler: async (ctx, args) => {
+    try {
+      return await ctx.db.insert('users').one(args).validate().execute()
+    } catch (error) {
+      logError('createUser', error as Error, { userId: args.email })
+      
+      if (error instanceof ValidationError) {
+        return { error: 'Invalid user data' }
+      }
+      
+      throw error
+    }
+  },
+})
+```
+
+### Error Metrics
+
+Track error rates for monitoring:
+
+```typescript
+async function trackError(errorType: string, operation: string) {
+  // In a real app, you might send this to an analytics service
+  await ctx.db.insert('error_metrics').one({
+    errorType,
+    operation,
+    timestamp: Date.now(),
+  }).execute()
+}
+
+export const createUser = mutation({
+  args: UserService.args,
+  handler: async (ctx, args) => {
+    try {
+      return await ctx.db.insert('users').one(args).validate().execute()
+    } catch (error) {
+      if (error instanceof ValidationError) {
+        await trackError('validation_error', 'createUser')
+        return { error: 'Invalid data provided' }
+      }
+      
+      if (error instanceof UniqueConstraintError) {
+        await trackError('unique_constraint_error', 'createUser')
+        return { error: 'Email already exists' }
+      }
+      
+      await trackError('unknown_error', 'createUser')
+      throw error
+    }
+  },
+})
+```
+
+## Client-Side Error Handling
+
+Handle errors appropriately in your frontend code:
+
+```typescript
+// React component
+function CreateUserForm() {
+  const createUser = useMutation(api.users.createUser)
+  const [error, setError] = useState<string>()
+  
+  const handleSubmit = async (userData: UserData) => {
+    try {
+      const result = await createUser(userData)
+      
+      if ('error' in result) {
+        // Handle known error types
+        switch (result.code) {
+          case 'VALIDATION_ERROR':
+            setError('Please check your input and try again')
+            break
+          case 'DUPLICATE_VALUE':
+            setError('Email address already registered')
+            break
+          default:
+            setError(result.error)
+        }
+        return
+      }
+      
+      // Success case
+      onUserCreated(result.userId)
+    } catch (error) {
+      // Unexpected error
+      setError('Something went wrong. Please try again.')
+      console.error('Unexpected error:', error)
+    }
+  }
+  
+  // ... render form with error display
+}
+```
+
+## Best Practices
+
+### Error Handling Strategy
+
+**✅ Good practices**:
+- Handle specific error types with appropriate messages
+- Log errors with sufficient context for debugging
+- Provide helpful user-facing error messages
+- Re-throw unexpected errors for proper error tracking
+- Use structured error responses for client consumption
+
+**❌ Avoid**:
+- Catching all errors with generic messages
+- Exposing internal error details to users
+- Ignoring validation errors silently
+- Not logging errors for debugging
+
+### Error Message Guidelines
+
+1. **User-Friendly**: Use clear, non-technical language
+2. **Actionable**: Tell users what they can do to fix the issue
+3. **Specific**: Provide relevant details without exposing internals
+4. **Consistent**: Use similar patterns across your application
+
+```typescript
+// ✅ Good error messages
+return { error: 'Email address already registered. Try logging in instead.' }
+return { error: 'Password must be at least 8 characters long.' }
+return { error: 'Post title is required and cannot be empty.' }
+
+// ❌ Poor error messages  
+return { error: 'Error' }
+return { error: 'ValidationError: string.min' }
+return { error: 'ConvexSQLError: UNIQUE constraint failed: users.email' }
+```
+
+### Testing Error Scenarios
+
+Test error handling thoroughly:
+
+```typescript
+// Test validation errors
+test('should handle invalid email', async () => {
+  const result = await createUser({ 
+    email: 'invalid-email',
+    name: 'Test User' 
+  })
+  expect(result.error).toContain('Invalid email')
+})
+
+// Test unique constraint violations
+test('should handle duplicate email', async () => {
+  await createUser({ email: 'test@example.com', name: 'User 1' })
+  const result = await createUser({ email: 'test@example.com', name: 'User 2' })
+  expect(result.error).toContain('already registered')
+})
+
+// Test not found errors
+test('should handle missing user', async () => {
+  const result = await updateUser({ id: 'nonexistent', updates: {} })
+  expect(result.error).toContain('not found')
+})
+```
+
+## Next Steps
+
+<Cards>
+  <Card 
+    title="API Reference" 
+    description="Complete API reference for all error types"
+    href="/docs/api-reference/error-types" 
+  />
+  <Card 
+    title="Validation System" 
+    description="Learn more about validation and custom validation"
+    href="/docs/service-builder/validation-system" 
+  />
+  <Card 
+    title="Database Operations" 
+    description="Apply error handling in CRUD operations"
+    href="/docs/database-operations/insert-operations" 
+  />
+  <Card 
+    title="Relations" 
+    description="Handle relation constraint errors"
+    href="/docs/advanced/relations" 
+  />
+</Cards>

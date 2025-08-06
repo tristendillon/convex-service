@@ -1,0 +1,12 @@
+{
+  "title": "Convex Service",
+  "pages": [
+    "index",
+    "getting-started",
+    "service-builder",
+    "database-operations",
+    "advanced",
+    "api-reference",
+    "roadmap"
+  ]
+}

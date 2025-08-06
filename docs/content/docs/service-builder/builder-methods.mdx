@@ -1,0 +1,338 @@
+---
+title: Builder Methods
+description: Complete reference for all service builder methods
+---
+
+# Builder Methods
+
+The service builder provides a fluent API for configuring your tables. This page documents all available builder methods with examples and GitHub references to the source code.
+
+## Table Configuration
+
+### `.name(tableName: string)`
+
+**Required method** that sets the table name and integrates with Convex's system fields.
+
+```typescript
+const UserService = defineService(schema).name('users') // Sets table name to 'users'
+```
+
+> **Source**: [`src/service.ts:70-82`](https://github.com/tristendillon/convex-service/blob/main/src/service.ts#L70-L82)
+
+**What it does**:
+
+- Sets the table name for Convex
+- Automatically adds `_id` and `_creationTime` system fields to your schema
+- Enables proper TypeScript typing for the service
+
+## Indexing
+
+### `.index(name: string, fields: string[])`
+
+Creates a standard Convex index for efficient queries.
+
+```typescript
+const UserService = defineService(schema)
+  .name('users')
+  .index('by_email', ['email']) // Single field
+  .index('by_active_age', ['isActive', 'age']) // Composite index
+  .index('by_created', ['_creationTime']) // System field index
+```
+
+> **Source**: [`src/service.ts:92-108`](https://github.com/tristendillon/convex-service/blob/main/src/service.ts#L92-L108)
+
+**Features**:
+
+- Index names are automatically sanitized to meet Convex requirements
+- Supports composite indexes with multiple fields
+- Field names are type-checked against your schema
+
+### `.searchIndex(name: string, config)`
+
+Creates a search index for full-text search capabilities.
+
+```typescript
+const PostService = defineService(schema)
+  .name('posts')
+  .searchIndex('by_title_content', {
+    searchField: 'title', // Field to search in
+    filterFields: ['published', 'authorId'], // Optional filter fields
+  })
+```
+
+> **Source**: [`src/service.ts:110-132`](https://github.com/tristendillon/convex-service/blob/main/src/service.ts#L110-L132)
+
+**Configuration**:
+
+- `searchField`: The text field to enable full-text search on
+- `filterFields`: Optional array of fields that can be used as filters
+
+### `.vectorIndex(name: string, config)`
+
+Creates a vector index for semantic search and AI applications.
+
+```typescript
+const DocumentService = defineService(schema)
+  .name('documents')
+  .vectorIndex('by_embedding', {
+    vectorField: 'embedding', // Array field containing vectors
+    dimensions: 1536, // Vector dimensions
+    filterFields: ['published', 'category'], // Optional filter fields
+  })
+```
+
+> **Source**: [`src/service.ts:134-158`](https://github.com/tristendillon/convex-service/blob/main/src/service.ts#L134-L158)
+
+**Configuration**:
+
+- `vectorField`: Field containing the vector array
+- `dimensions`: Number of dimensions in your vectors
+- `filterFields`: Optional fields for filtering vector search results
+
+> **Example**: See the complete vector index setup in [`test/src/convex/schema.ts:69-73`](https://github.com/tristendillon/convex-service/blob/main/test/src/convex/schema.ts#L69-L73)
+
+## Default Values
+
+### `.default(field: string, value: any | Function)`
+
+Sets default values for fields, supporting both static values and functions.
+
+```typescript
+const UserService = defineService(schema)
+  .name('users')
+  .default('age', 18) // Static default
+  .default('isActive', true) // Boolean default
+  .default('createdAt', () => new Date()) // Function default
+```
+
+> **Source**: [`src/service.ts:161-167`](https://github.com/tristendillon/convex-service/blob/main/src/service.ts#L161-L167)
+
+**Default Types**:
+
+- **Static**: Any literal value
+- **Function**: `() => value` - Called once per operation
+- **Dynamic**: `(data) => value` - Receives the input data and can compute defaults
+
+**Usage with Operations**:
+
+```typescript
+// Use .withDefaults() in operations to apply default values
+const userId = await ctx.db
+  .insert('users')
+  .withDefaults() // Applies defaults before insertion
+  .one(args)
+  .execute()
+```
+
+## Unique Constraints
+
+### `.unique(field: string)`
+
+### `.unique(fields: string[], onConflict?: 'fail' | 'replace')`
+
+Defines unique constraints with optional conflict resolution strategies.
+
+```typescript
+const UserService = defineService(schema)
+  .name('users')
+  .unique('email') // Single field, fail on conflict
+  .unique('username') // Another unique field
+  .unique(['firstName', 'lastName'], 'replace') // Composite unique, replace on conflict
+```
+
+> **Source**: [`src/service.ts:169-194`](https://github.com/tristendillon/convex-service/blob/main/src/service.ts#L169-L194)
+
+**Conflict Resolution**:
+
+- `'fail'` (default): Throw an error if constraint is violated
+- `'replace'`: Replace the existing record with the new one
+
+**What it does**:
+
+- Automatically creates an index for the unique constraint
+- Enables uniqueness validation during insert/update operations
+- Provides type-safe conflict resolution
+
+> **Example**: See composite unique constraints in [`test/src/convex/schema.ts:36`](https://github.com/tristendillon/convex-service/blob/main/test/src/convex/schema.ts#L36)
+
+## Relationships
+
+### `.relation(field: string, table: string, onDelete: 'cascade' | 'fail')`
+
+Defines foreign key relationships between tables.
+
+```typescript
+const PostService = defineService(schema)
+  .name('posts')
+  .relation('authorId', 'users', 'cascade') // Delete posts when user is deleted
+  .relation('categoryId', 'categories', 'fail') // Prevent category deletion if posts exist
+```
+
+> **Source**: [`src/service.ts:209-222`](https://github.com/tristendillon/convex-service/blob/main/src/service.ts#L209-L222)
+
+**Deletion Policies**:
+
+- `'cascade'`: Delete related records when parent is deleted
+- `'fail'`: Prevent parent deletion if related records exist
+
+**What it does**:
+
+- Automatically creates an index on the foreign key field
+- Enables referential integrity enforcement
+- Provides cascading delete functionality
+
+> **Example**: Multiple relations demonstrated in [`test/src/convex/schema.ts:61-63`](https://github.com/tristendillon/convex-service/blob/main/test/src/convex/schema.ts#L61-L63)
+
+## Validation
+
+### `.validate()`
+
+### `.validate(schema: ZodSchema)`
+
+### `.validate(fn: ValidationFunction)`
+
+Enables validation for the service with optional custom validation.
+
+```typescript
+// Enable default Zod validation
+const UserService = defineService(schema).name('users').validate() // Use the original Zod schema for validation
+
+// Custom Zod schema validation
+const UserService = defineService(baseSchema)
+  .name('users')
+  .validate(
+    z.object({
+      username: z.string().min(3),
+      email: z.string().email(),
+      // Additional validation rules
+    })
+  )
+
+// Custom validation function
+const UserService = defineService(schema)
+  .name('users')
+  .validate(async (ctx, tableName, data) => {
+    // Custom validation logic
+    if (
+      await ctx.db
+        .query('users')
+        .filter((q) => q.eq(q.field('email'), data.email))
+        .first()
+    ) {
+      throw new Error('Email already exists')
+    }
+  })
+```
+
+> **Source**: [`src/service.ts:195-206`](https://github.com/tristendillon/convex-service/blob/main/src/service.ts#L195-L206)
+
+**Validation Options**:
+
+- **No arguments**: Uses the original Zod schema
+- **Zod schema**: Uses provided schema instead
+- **Function**: Custom validation logic with full context access
+
+**Key Point**: Only services with `.validate()` will actually validate during operations. Without it, validation is completely disabled for performance.
+
+> **Example**: Services with and without validation in [`test/src/convex/schema.ts:17` vs `test/src/convex/schema.ts:44`](https://github.com/tristendillon/convex-service/blob/main/test/src/convex/schema.ts#L6-L44)
+
+## Registration
+
+### `.register()`
+
+Converts the service builder into a registered service definition for use in mutations.
+
+```typescript
+const UserService = defineService(schema).name('users').validate()
+// ... other configuration
+
+// Register for use in service schema
+export const ServiceSchema = defineServiceSchema({
+  users: UserService.register(), // ← Register the service
+}).register()
+```
+
+> **Source**: [`src/service.ts:301-323`](https://github.com/tristendillon/convex-service/blob/main/src/service.ts#L301-L323)
+
+**Returns**:
+
+- Registered service definition with all configuration
+- Type information for mutations
+- Validation and constraint metadata
+
+## Method Chaining
+
+All builder methods return `this`, enabling fluent chaining:
+
+```typescript
+const CompleteService = defineService(
+  z.object({
+    name: z.string(),
+    email: z.string().email(),
+    age: z.number(),
+    isActive: z.boolean(),
+    profileId: z.string().optional(),
+  })
+)
+  .name('users') // Required first
+  .default('age', 18) // Configure defaults
+  .default('isActive', true)
+  .unique('email') // Add constraints
+  .relation('profileId', 'profiles', 'cascade') // Define relationships
+  .index('by_age', ['age']) // Add indexes
+  .index('by_active_age', ['isActive', 'age'])
+  .searchIndex('by_name', {
+    // Add search
+    searchField: 'name',
+    filterFields: ['isActive'],
+  })
+  .validate() // Enable validation
+  .register() // Register for use
+```
+
+## Type Safety Features
+
+The builder provides excellent TypeScript support:
+
+### Field Path Validation
+
+```typescript
+const UserService = defineService(
+  z.object({ name: z.string(), age: z.number() })
+)
+  .name('users')
+  .index('by_name', ['name']) // ✅ 'name' exists in schema
+  .index('by_invalid', ['invalid']) // ❌ TypeScript error - field doesn't exist
+```
+
+### Generated Types
+
+```typescript
+const UserService = defineService(schema).name('users')
+
+// Access generated types
+const UserValidator = UserService.validator // Convex validator
+const UserArgsValdiator = UserService.args // All fields required
+const UserArgsWithoutDefaults = UserService.argsWithoutDefaults // Defaults optional
+const UserZodSchema = UserService.schema // Zod schema with _id, _creationTime
+```
+
+## Next Steps
+
+<Cards>
+  <Card
+    title="Validation System"
+    description="Deep dive into how validation works"
+    href="/docs/service-builder/validation-system"
+  />
+  <Card
+    title="Database Operations"
+    description="Learn how to use services in mutations"
+    href="/docs/database-operations/insert-operations"
+  />
+  <Card
+    title="Advanced Relations"
+    description="Complex relationship patterns"
+    href="/docs/advanced/relations"
+  />
+</Cards>

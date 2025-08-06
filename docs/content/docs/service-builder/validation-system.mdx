@@ -1,0 +1,340 @@
+---
+title: Validation System
+description: Learn when and how validation works in Convex Service
+---
+
+# Validation System
+
+Convex Service features an **optional validation system** designed for flexibility and performance. Validation only runs when explicitly enabled, giving you fine-grained control over when to prioritize validation versus performance.
+
+## Core Concept: Opt-in Validation
+
+The key principle is that **validation is completely optional**. Services without validation have zero performance overhead.
+
+### Service-Level Validation Control
+
+Validation is controlled at the service definition level:
+
+```typescript
+// ✅ Validation ENABLED - calls .validate()
+const ValidatedUserService = defineService(
+  z.object({
+    email: z.string().email(),
+    age: z.number().min(18),
+    name: z.string().min(1),
+  })
+)
+  .name('users')
+  .validate() // ← This enables validation for this service
+
+// ❌ Validation DISABLED - no .validate() call
+const FastUserService = defineService(
+  z.object({
+    email: z.string().email(), // Schema used only for types
+    age: z.number().min(18),
+    name: z.string().min(1),
+  })
+).name('users')
+// No .validate() = zero validation overhead
+```
+
+> **Source**: The [`.validate()` method](https://github.com/tristendillon/convex-service/blob/main/src/service.ts#L195-L206) is what enables validation in the service definition.
+
+### Operation-Level Validation Chain
+
+Even with validation enabled at the service level, you control when it runs in operations:
+
+```typescript
+// Service has .validate() - validation is available
+const mutation = CreateServiceMutation<DataModel>(serviceSchema)
+
+export const createUser = mutation({
+  args: validatedUserService.args,
+  handler: async (ctx, args) => {
+    // Option 1: Validate before executing
+    const userId = await ctx.db
+      .insert('users')
+      .one(args)
+      .validate() // ← Actually runs validation
+      .execute()
+
+    // Option 2: Skip validation for performance
+    const fastUserId = await ctx.db.insert('users').one(args).execute() // ← No validation, maximum speed
+
+    return userId
+  },
+})
+```
+
+## How Validation Works
+
+### When Validation Runs
+
+Validation runs **only when both conditions are met**:
+
+1. **Service has `.validate()`** in its definition
+2. **Operation calls `.validate()`** in the chain
+
+```typescript
+// Example: Service WITH validation
+const UserService = defineService(schema).name('users').validate() // ← Condition 1: Service enables validation
+
+// In mutation:
+await ctx.db
+  .insert('users')
+  .one(data)
+  .validate() // ← Condition 2: Operation requests validation
+  .execute() // ← Validation runs here
+```
+
+### When Validation is Skipped
+
+Validation is completely skipped in these cases:
+
+```typescript
+// Case 1: Service doesn't have .validate()
+const FastService = defineService(schema).name('users') // No .validate()
+
+await ctx.db.insert('users').one(data).validate().execute()
+//                                     ^^^^^^^^^ This is a no-op
+
+// Case 2: Service has .validate() but operation skips it
+const ValidatedService = defineService(schema).name('users').validate()
+
+await ctx.db.insert('users').one(data).execute() // Skips .validate()
+//                                    ^^^^^^^^^ No validation
+```
+
+> **Performance**: When validation is disabled or skipped, the [operation builder](https://github.com/tristendillon/convex-service/blob/main/src/writer/base.ts#L26-L38) becomes a pass-through with no overhead.
+
+## Types of Validation
+
+### 1. Schema Validation (Default)
+
+When you call `.validate()` with no arguments, it uses your Zod schema:
+
+```typescript
+const UserService = defineService(
+  z.object({
+    email: z.string().email('Must be valid email'),
+    age: z.number().min(18, 'Must be 18 or older'),
+    name: z.string().min(1, 'Name required'),
+  })
+)
+  .name('users')
+  .validate() // Uses the Zod schema above
+```
+
+### 2. Custom Schema Validation
+
+Provide a different Zod schema for validation:
+
+```typescript
+const UserService = defineService(baseSchema)
+  .name('users')
+  .validate(
+    z.object({
+      email: z.string().email(),
+      age: z.number().min(21), // Stricter validation
+      name: z.string().min(2),
+      // Additional validation rules
+      password: z.string().min(8),
+    })
+  )
+```
+
+### 3. Custom Function Validation
+
+For complex validation logic with database access:
+
+```typescript
+const UserService = defineService(schema)
+  .name('users')
+  .validate(async (ctx, tableName, data) => {
+    // Check for existing email
+    const existingUser = await ctx.db
+      .query('users')
+      .filter((q) => q.eq(q.field('email'), data.email))
+      .first()
+
+    if (existingUser) {
+      throw new Error('Email already exists')
+    }
+
+    // Additional business logic validation
+    if (data.age < 13 && !data.parentalConsent) {
+      throw new Error('Parental consent required for users under 13')
+    }
+  })
+```
+
+> **Important**: Custom validation functions throw regular `Error` objects, not `ValidationError`. The `ValidationError` class is reserved for Zod schema validation failures.
+
+> **Source**: Custom validation functions receive full context access as shown in the [validation handler](https://github.com/tristendillon/convex-service/blob/main/src/writer/base.ts#L25-L37).
+
+## Validation Examples
+
+### Service Comparison
+
+```typescript
+// High-validation service for user registration
+const UserRegistrationService = defineService(
+  z.object({
+    username: z
+      .string()
+      .min(3)
+      .max(20)
+      .regex(/^[a-zA-Z0-9_]+$/),
+    email: z.string().email(),
+    password: z.string().min(8),
+    age: z.number().min(13),
+    termsAccepted: z.boolean().refine((val) => val === true),
+  })
+)
+  .name('users')
+  .unique('username')
+  .unique('email')
+  .validate() // Enable strict validation
+
+// Performance-optimized service for analytics
+const AnalyticsEventService = defineService(
+  z.object({
+    eventType: z.string(),
+    userId: z.string(),
+    timestamp: z.number(),
+    properties: z.record(z.any()),
+  })
+)
+  .name('analytics_events')
+  .index('by_user_time', ['userId', 'timestamp'])
+// No .validate() - maximum insert performance for high-volume events
+```
+
+### Conditional Validation
+
+```typescript
+export const createUser = mutation({
+  args: {
+    user: UserService.args,
+    skipValidation: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    let operation = ctx.db.insert('users').one(args.user)
+
+    // Conditionally apply validation
+    if (!args.skipValidation) {
+      operation = operation.validate()
+    }
+
+    return await operation.execute()
+  },
+})
+```
+
+## Validation Performance
+
+### Zero-Cost Abstraction
+
+Services without `.validate()` have **zero validation overhead**:
+
+```typescript
+// This service definition:
+const FastService = defineService(schema).name('fast_table')
+
+// Compiles to essentially:
+const operation = ctx.db.insert('fast_table').one(data).execute()
+// No validation code is included in the bundle
+```
+
+### Validation Costs
+
+When validation is enabled, costs include:
+
+1. **Zod parsing**: Schema validation overhead
+2. **Database queries**: For uniqueness checks and relations
+3. **Custom logic**: Your validation functions
+
+```typescript
+// Expensive validation example
+const ExpensiveService = defineService(schema)
+  .name('users')
+  .unique('email') // Database query for uniqueness
+  .unique('username') // Another database query
+  .validate(async (ctx, table, data) => {
+    // Custom validation with more queries
+    const relatedCount = await ctx.db
+      .query('related_table')
+      .filter((q) => q.eq(q.field('userId'), data.userId))
+      .collect()
+
+    if (relatedCount.length > 10) {
+      throw new Error('Too many related records')
+    }
+  })
+```
+
+## Best Practices
+
+### When to Enable Validation
+
+**✅ Enable validation for**:
+
+- User input (registration, profile updates)
+- Critical business data
+- Data with complex constraints
+- Low-frequency, high-value operations
+
+**❌ Skip validation for**:
+
+- High-frequency analytics events
+- Internal system operations
+- Performance-critical paths
+- Bulk data migrations
+
+### Error Handling
+
+Handle validation errors gracefully:
+
+> **NOTE**: This API is subject to change!
+
+```typescript
+export const createUser = mutation({
+  args: UserService.args,
+  handler: async (ctx, args) => {
+    try {
+      const userId = await ctx.db.insert('users').one(args).validate().execute()
+      return { success: true, userId }
+    } catch (error) {
+      if (error instanceof ValidationError) {
+        return { success: false, error: error.message }
+      }
+      if (error instanceof UniqueConstraintError) {
+        return { success: false, error: 'Email already exists' }
+      }
+      throw error // Re-throw unexpected errors
+    }
+  },
+})
+```
+
+> **Error Types**: See all validation error types in [`src/errors.ts`](https://github.com/tristendillon/convex-service/blob/main/src/errors.ts#L7-L11).
+
+## Next Steps
+
+<Cards>
+  <Card
+    title="Database Operations"
+    description="Learn how to use validation in CRUD operations"
+    href="/docs/database-operations/insert-operations"
+  />
+  <Card
+    title="Error Handling"
+    description="Handle validation errors gracefully"
+    href="/docs/advanced/error-handling"
+  />
+  <Card
+    title="Unique Constraints"
+    description="Deep dive into uniqueness validation"
+    href="/docs/advanced/unique-constraints"
+  />
+</Cards>

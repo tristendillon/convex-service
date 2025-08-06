@@ -1,0 +1,416 @@
+---
+title: Delete Operations
+description: Learn how to delete records with cascade handling and relation management
+---
+
+# Delete Operations
+
+Delete operations remove records from your tables. Convex Service enhances standard Convex deletes with cascade handling, relation management, and batch operations.
+
+## Basic Delete
+
+The simplest delete operation removes a record by ID:
+
+```typescript
+export const deleteUser = mutation({
+  args: {
+    id: v.id('users'),
+  },
+  handler: async (ctx, args) => {
+    const deletedId = await ctx.db.delete('users').one(args.id)
+    return deletedId
+  },
+})
+```
+
+> **Example**: See this pattern in [`test/src/convex/myFunctions.ts:164-172`](https://github.com/tristendillon/convex-service/blob/main/test/src/convex/myFunctions.ts#L164-L172)
+
+## Delete Operation Chain
+
+Delete operations follow a simple pattern:
+
+```typescript
+ctx.db
+  .delete('tableName')     // Start delete operation
+  .one(id)                 // Delete single record by ID
+  // Returns the deleted ID
+```
+
+> **Implementation**: Delete operations are implemented in [`src/writer/delete.ts`](https://github.com/tristendillon/convex-service/blob/main/src/writer/delete.ts)
+
+## Batch Delete Operations
+
+Delete multiple records efficiently:
+
+```typescript
+export const deleteManyUsers = mutation({
+  args: v.object({
+    userIds: v.array(v.id('users')),
+  }),
+  handler: async (ctx, args) => {
+    const deletedIds = await ctx.db
+      .delete('users')
+      .many(args.userIds)    // Delete multiple records
+    
+    return deletedIds
+  },
+})
+```
+
+> **Example**: Complete batch delete implementation at [`test/src/convex/myFunctions.ts:174-182`](https://github.com/tristendillon/convex-service/blob/main/test/src/convex/myFunctions.ts#L174-L182)
+
+## Cascade Delete Behavior
+
+When your service defines relations with cascade deletion, Convex Service automatically handles related records:
+
+```typescript
+const UserService = defineService(userSchema)
+  .name('users')
+
+const PostService = defineService(postSchema)
+  .name('posts')
+  .relation('authorId', 'users', 'cascade')  // Posts cascade when user deleted
+
+const CommentService = defineService(commentSchema)
+  .name('comments')
+  .relation('postId', 'posts', 'cascade')    // Comments cascade when post deleted
+  .relation('authorId', 'users', 'cascade')  // Comments cascade when user deleted
+
+// When deleting a user...
+export const deleteUser = mutation({
+  args: { id: v.id('users') },
+  handler: async (ctx, args) => {
+    const deletedId = await ctx.db.delete('users').one(args.id)
+    // Automatically deletes:
+    // 1. All posts by this user (authorId → users cascade)
+    // 2. All comments by this user (authorId → users cascade)
+    // 3. All comments on the deleted posts (postId → posts cascade)
+    return deletedId
+  },
+})
+```
+
+> **Relation Configuration**: Relations are defined using [`.relation()`](https://github.com/tristendillon/convex-service/blob/main/src/service.ts#L209-L222) in the service builder.
+
+## Cascade vs Fail Relations
+
+Services can define different deletion policies:
+
+```typescript
+const CategoryService = defineService(categorySchema)
+  .name('categories')
+
+const PostService = defineService(postSchema)
+  .name('posts')
+  .relation('authorId', 'users', 'cascade')     // Delete posts when user deleted
+  .relation('categoryId', 'categories', 'fail') // Prevent category deletion if posts exist
+```
+
+### Cascade Behavior
+
+With `'cascade'` relations, deleting the parent automatically deletes children:
+
+```typescript
+export const deleteUser = mutation({
+  args: { id: v.id('users') },
+  handler: async (ctx, args) => {
+    // This will succeed and delete all related posts
+    const deletedId = await ctx.db.delete('users').one(args.id)
+    return deletedId
+  },
+})
+```
+
+### Fail Behavior
+
+With `'fail'` relations, deletion is prevented if related records exist:
+
+```typescript
+export const deleteCategory = mutation({
+  args: { id: v.id('categories') },
+  handler: async (ctx, args) => {
+    try {
+      const deletedId = await ctx.db.delete('categories').one(args.id)
+      return { success: true, deletedId }
+    } catch (error) {
+      if (error instanceof ConvexSQLError) {
+        // Category has posts, deletion prevented
+        return { success: false, error: 'Cannot delete category with existing posts' }
+      }
+      throw error
+    }
+  },
+})
+```
+
+> **Example**: See fail relation handling in [`test/src/convex/myFunctions.ts:184-193`](https://github.com/tristendillon/convex-service/blob/main/test/src/convex/myFunctions.ts#L184-L193)
+
+## Error Handling
+
+Delete operations can encounter several types of errors:
+
+```typescript
+import { 
+  DocumentNotFoundError,
+  ConvexSQLError 
+} from 'convex-service'
+
+export const deleteUser = mutation({
+  args: { id: v.id('users') },
+  handler: async (ctx, args) => {
+    try {
+      const deletedId = await ctx.db.delete('users').one(args.id)
+      return { success: true, deletedId }
+    } catch (error) {
+      if (error instanceof DocumentNotFoundError) {
+        return { success: false, error: 'User not found' }
+      }
+      
+      if (error instanceof ConvexSQLError) {
+        // Could be relation constraint violation
+        return { success: false, error: 'Cannot delete user due to dependencies' }
+      }
+      
+      throw error
+    }
+  },
+})
+```
+
+## Validation and Delete Operations
+
+Unlike insert/replace/patch operations, delete operations don't use validation chains since they don't modify data - they only remove records:
+
+```typescript
+// Delete operations don't have .validate() or .execute()
+const deletedId = await ctx.db
+  .delete('users')
+  .one(userId)  // Returns immediately, no chaining needed
+```
+
+## Advanced Delete Patterns
+
+### Conditional Delete
+
+```typescript
+export const deleteUserIfInactive = mutation({
+  args: { 
+    id: v.id('users'),
+    force: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.id)
+    
+    if (!user) {
+      return { error: 'User not found' }
+    }
+    
+    if (user.isActive && !args.force) {
+      return { error: 'Cannot delete active user' }
+    }
+    
+    const deletedId = await ctx.db.delete('users').one(args.id)
+    return { success: true, deletedId }
+  },
+})
+```
+
+### Soft Delete Pattern
+
+Instead of actual deletion, mark records as deleted:
+
+```typescript
+const UserService = defineService(
+  z.object({
+    name: z.string(),
+    email: z.string(),
+    isDeleted: z.boolean(),
+    deletedAt: z.number().optional(),
+  })
+)
+.name('users')
+.default('isDeleted', false)
+.index('by_active', ['isDeleted'])
+
+export const softDeleteUser = mutation({
+  args: { id: v.id('users') },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .patch('users')
+      .one(args.id, {
+        isDeleted: true,
+        deletedAt: Date.now(),
+      })
+      .execute()
+    
+    return user
+  },
+})
+
+export const permanentlyDeleteUser = mutation({
+  args: { id: v.id('users') },
+  handler: async (ctx, args) => {
+    // Only delete if already soft-deleted
+    const user = await ctx.db.get(args.id)
+    if (!user?.isDeleted) {
+      throw new Error('User must be soft-deleted first')
+    }
+    
+    const deletedId = await ctx.db.delete('users').one(args.id)
+    return deletedId
+  },
+})
+```
+
+### Audit Trail Delete
+
+Log deletions for audit purposes:
+
+```typescript
+export const deleteUserWithAudit = mutation({
+  args: { 
+    id: v.id('users'),
+    reason: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.id)
+    
+    if (!user) {
+      throw new Error('User not found')
+    }
+    
+    // Create audit record first
+    await ctx.db.insert('audit_logs').one({
+      action: 'USER_DELETED',
+      entityId: args.id,
+      entityData: user,
+      reason: args.reason,
+      timestamp: Date.now(),
+    }).execute()
+    
+    // Then delete the user
+    const deletedId = await ctx.db.delete('users').one(args.id)
+    
+    return { deletedId, auditLogged: true }
+  },
+})
+```
+
+## Performance Considerations
+
+### Cascade Performance
+
+Cascade deletes can be expensive for records with many relations:
+
+```typescript
+// This could trigger many cascading deletes
+const deletedId = await ctx.db.delete('users').one(popularUserId)
+// Might delete:
+// - Hundreds of posts
+// - Thousands of comments  
+// - Related notifications, etc.
+```
+
+Consider soft deletes or background cleanup for high-volume scenarios.
+
+### Batch Delete Efficiency
+
+```typescript
+// Both approaches work well - Convex handles cascading gracefully in either case
+for (const userId of userIds) {
+  await ctx.db.delete('users').one(userId)
+}
+
+// ✅ Cleaner API - single batch operation
+const deletedIds = await ctx.db.delete('users').many(userIds)
+```
+
+### Index Impact
+
+Deletes can affect query performance if they create sparse indexes:
+
+```typescript
+// If you frequently delete users but keep their posts
+// The 'by_author' index becomes sparse
+const PostService = defineService(postSchema)
+  .name('posts')
+  .relation('authorId', 'users', 'fail')  // Keep posts when user deleted
+  .index('by_author', ['authorId'])       // This index becomes sparse
+```
+
+## Type Safety
+
+Delete operations provide full type safety:
+
+```typescript
+export const deleteUser = mutation({
+  args: { id: v.id('users') },           // Type-safe ID parameter
+  handler: async (ctx, args) => {
+    const deletedId = await ctx.db
+      .delete('users')                   // Table name is type-checked
+      .one(args.id)                      // ID type matches table
+
+    return deletedId                     // Type: Id<'users'>
+  },
+})
+
+export const deleteManyUsers = mutation({
+  args: { userIds: v.array(v.id('users')) },  // Array of type-safe IDs
+  handler: async (ctx, args) => {
+    const deletedIds = await ctx.db
+      .delete('users')
+      .many(args.userIds)                // Type-checked array of IDs
+
+    return deletedIds                    // Type: Id<'users'>[]
+  },
+})
+```
+
+## Relation Constraint Validation
+
+When deleting records with `'fail'` relations, the system validates constraints:
+
+```typescript
+const PostService = defineService(postSchema)
+  .name('posts')
+  .relation('categoryId', 'categories', 'fail')
+
+export const deleteCategory = mutation({
+  args: { id: v.id('categories') },
+  handler: async (ctx, args) => {
+    try {
+      // This checks if any posts reference this category
+      const deletedId = await ctx.db.delete('categories').one(args.id)
+      return deletedId
+    } catch (error) {
+      // Constraint violation - posts exist with this category
+      return { error: 'Category is in use by existing posts' }
+    }
+  },
+})
+```
+
+## Next Steps
+
+<Cards>
+  <Card 
+    title="Batch Operations" 
+    description="Learn efficient bulk operation patterns"
+    href="/docs/database-operations/batch-operations" 
+  />
+  <Card 
+    title="Relations" 
+    description="Deep dive into relationship management"
+    href="/docs/advanced/relations" 
+  />
+  <Card 
+    title="Error Handling" 
+    description="Handle deletion errors and constraints"
+    href="/docs/advanced/error-handling" 
+  />
+  <Card 
+    title="API Reference" 
+    description="Complete delete operation reference"
+    href="/docs/api-reference/database-operations" 
+  />
+</Cards>

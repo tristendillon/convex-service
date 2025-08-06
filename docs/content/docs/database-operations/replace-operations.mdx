@@ -1,0 +1,499 @@
+---
+title: Replace Operations
+description: Learn how to replace existing records with full validation and defaults
+---
+
+# Replace Operations
+
+Replace operations completely overwrite existing records with new data. Unlike patches, replace operations require all fields (except those with defaults) and validate the entire record.
+
+## Basic Replace
+
+Replace an existing record by ID:
+
+```typescript
+export const replaceUser = mutation({
+  args: {
+    id: v.id('users'),
+    user: UserService.args,
+  },
+  handler: async (ctx, args) => {
+    const updatedUser = await ctx.db
+      .replace('users')
+      .one(args.id, args.user)  // Replace record with full data
+      .execute()
+
+    return updatedUser
+  },
+})
+```
+
+> **Example**: See this pattern in [`test/src/convex/myFunctions.ts:60-73`](https://github.com/tristendillon/convex-service/blob/main/test/src/convex/myFunctions.ts#L60-L73)
+
+## Replace with Validation
+
+For services with validation enabled, add validation to the replace operation:
+
+```typescript
+export const replaceValidatedUser = mutation({
+  args: {
+    id: v.id('users'),
+    user: UserService.args,
+  },
+  handler: async (ctx, args) => {
+    const updatedUser = await ctx.db
+      .replace('users')
+      .one(args.id, args.user)
+      .validate()               // Validate the replacement data
+      .execute()
+
+    return updatedUser
+  },
+})
+```
+
+> **Key Point**: Validation runs on the entire replacement record, not just changed fields.
+
+## Replace with Defaults
+
+Apply default values during replacement:
+
+```typescript
+// Service with defaults
+const UserService = defineService(schema)
+  .name('users')
+  .default('lastUpdated', () => Date.now())
+  .default('version', (data) => (data.version || 0) + 1)
+  .validate()
+
+export const replaceUserWithDefaults = mutation({
+  args: {
+    id: v.id('users'),
+    user: UserService.argsWithoutDefaults, // Defaults are optional
+  },
+  handler: async (ctx, args) => {
+    const updatedUser = await ctx.db
+      .replace('users')
+      .withDefaults()           // Apply defaults to replacement
+      .one(args.id, args.user)
+      .validate()
+      .execute()
+
+    return updatedUser
+  },
+})
+```
+
+> **Example**: Complete replace with defaults at [`test/src/convex/myFunctions.ts:94-108`](https://github.com/tristendillon/convex-service/blob/main/test/src/convex/myFunctions.ts#L94-L108)
+
+## Operation Chain Pattern
+
+Replace operations follow a consistent builder pattern:
+
+```typescript
+ctx.db
+  .replace('tableName')        // Start replace operation
+  .withDefaults()              // Optional: apply defaults
+  .one(id, newData)            // Replace single record
+  .validate()                  // Optional: validate
+  .execute()                   // Execute and return updated record
+```
+
+> **Implementation**: Replace operations are implemented in [`src/writer/replace.ts`](https://github.com/tristendillon/convex-service/blob/main/src/writer/replace.ts)
+
+## Batch Replace Operations
+
+Replace multiple records in a single operation:
+
+```typescript
+export const replaceManyUsers = mutation({
+  args: v.object({
+    users: v.array(v.object({
+      id: v.id('users'),
+      ...UserService.args.fields,
+    })),
+  }),
+  handler: async (ctx, args) => {
+    const updatedUsers = await ctx.db
+      .replace('users')
+      .many(
+        args.users.map(({ id, ...user }) => ({ 
+          id, 
+          value: user 
+        }))
+      )
+      .validate()               // Validates each replacement
+      .execute()
+
+    return updatedUsers
+  },
+})
+```
+
+> **Example**: See batch replace implementation at [`test/src/convex/myFunctions.ts:75-92`](https://github.com/tristendillon/convex-service/blob/main/test/src/convex/myFunctions.ts#L75-L92)
+
+### Batch Replace with Defaults
+
+```typescript
+export const replaceManyUsersWithDefaults = mutation({
+  args: v.object({
+    users: v.array(v.object({
+      id: v.id('users'),
+      ...UserService.argsWithoutDefaults.fields,
+    })),
+  }),
+  handler: async (ctx, args) => {
+    const updatedUsers = await ctx.db
+      .replace('users')
+      .withDefaults()           // Apply defaults to each replacement
+      .many(
+        args.users.map(({ id, ...user }) => ({ 
+          id, 
+          value: user 
+        }))
+      )
+      .validate()
+      .execute()
+
+    return updatedUsers
+  },
+})
+```
+
+## Replace vs Insert Semantics
+
+Replace operations have specific behavior patterns:
+
+### Record Must Exist
+
+Replace operations require the target record to exist:
+
+```typescript
+export const replaceUser = mutation({
+  args: { id: v.id('users'), user: UserService.args },
+  handler: async (ctx, args) => {
+    try {
+      const updatedUser = await ctx.db
+        .replace('users')
+        .one(args.id, args.user)
+        .execute()
+
+      return updatedUser
+    } catch (error) {
+      if (error instanceof DocumentNotFoundError) {
+        // Record doesn't exist
+        return { error: 'User not found' }
+      }
+      throw error
+    }
+  },
+})
+```
+
+### Full Record Replacement
+
+Replace operations overwrite the entire record (except system fields):
+
+```typescript
+// Original record
+const originalUser = {
+  _id: "user123",
+  _creationTime: 1234567890,
+  name: "John Doe",
+  email: "john@example.com",
+  age: 30,
+  bio: "Software developer",
+  isActive: true,
+}
+
+// Replace operation
+await ctx.db
+  .replace('users')
+  .one("user123", {
+    name: "Jane Smith",
+    email: "jane@example.com",
+    age: 25,
+    isActive: false,
+    // Note: bio is missing - it will be removed!
+  })
+  .execute()
+
+// Result - bio is gone, other fields updated
+const updatedUser = {
+  _id: "user123",           // System field preserved
+  _creationTime: 1234567890, // System field preserved
+  name: "Jane Smith",       // Updated
+  email: "jane@example.com", // Updated
+  age: 25,                  // Updated
+  isActive: false,          // Updated
+  // bio: removed!
+}
+```
+
+## Unique Constraint Handling
+
+Replace operations respect unique constraints:
+
+```typescript
+const UserService = defineService(schema)
+  .name('users')
+  .unique('email')
+  .unique('username')
+  .validate()
+
+export const replaceUser = mutation({
+  args: { id: v.id('users'), user: UserService.args },
+  handler: async (ctx, args) => {
+    try {
+      const updatedUser = await ctx.db
+        .replace('users')
+        .one(args.id, args.user)
+        .validate()             // Checks uniqueness constraints
+        .execute()
+
+      return updatedUser
+    } catch (error) {
+      if (error instanceof UniqueConstraintError) {
+        return { error: 'Email or username already exists' }
+      }
+      throw error
+    }
+  },
+})
+```
+
+**Unique Constraint Behavior**:
+- Checks constraints against other records (excluding the one being replaced)
+- Allows keeping the same unique value if it's not changing
+- Respects conflict resolution strategies (`'fail'` vs `'replace'`)
+
+## Error Handling
+
+Replace operations can encounter several error types:
+
+```typescript
+import { 
+  ValidationError, 
+  UniqueConstraintError,
+  DocumentNotFoundError,
+  ConvexSQLError 
+} from 'convex-service'
+
+export const replaceUser = mutation({
+  args: { id: v.id('users'), user: UserService.args },
+  handler: async (ctx, args) => {
+    try {
+      return await ctx.db
+        .replace('users')
+        .one(args.id, args.user)
+        .validate()
+        .execute()
+    } catch (error) {
+      if (error instanceof DocumentNotFoundError) {
+        return { error: 'User not found' }
+      }
+      
+      if (error instanceof ValidationError) {
+        return { error: `Validation failed: ${error.message}` }
+      }
+      
+      if (error instanceof UniqueConstraintError) {
+        return { error: 'Duplicate value for unique field' }
+      }
+      
+      if (error instanceof ConvexSQLError) {
+        return { error: 'Database operation failed' }
+      }
+      
+      throw error
+    }
+  },
+})
+```
+
+## Performance Considerations
+
+### Validation Overhead
+
+```typescript
+// Maximum performance - no validation
+const fastUpdate = await ctx.db
+  .replace('users')
+  .one(id, data)
+  .execute()
+
+// With validation - includes constraint checking
+const validatedUpdate = await ctx.db
+  .replace('users')
+  .one(id, data)
+  .validate()       // Adds validation overhead
+  .execute()
+```
+
+### Batch vs Individual Replacements
+
+```typescript
+// Both approaches work well - choose based on your preference
+for (const user of users) {
+  await ctx.db
+    .replace('users')
+    .one(user.id, user.data)
+    .validate()
+    .execute()
+}
+
+// ✅ Cleaner API - batch operation for better readability
+const updatedUsers = await ctx.db
+  .replace('users')
+  .many(users.map(u => ({ id: u.id, value: u.data })))
+  .validate()
+  .execute()
+```
+
+## Advanced Patterns
+
+### Conditional Replace
+
+```typescript
+export const conditionalReplaceUser = mutation({
+  args: { 
+    id: v.id('users'), 
+    user: UserService.args,
+    force: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    // Check if record exists first
+    const existing = await ctx.db.get(args.id)
+    if (!existing && !args.force) {
+      return { error: 'User not found' }
+    }
+    
+    return await ctx.db
+      .replace('users')
+      .one(args.id, args.user)
+      .validate()
+      .execute()
+  },
+})
+```
+
+### Replace with Relations
+
+```typescript
+const PostService = defineService(schema)
+  .name('posts')
+  .relation('authorId', 'users', 'cascade')
+  .relation('categoryId', 'categories', 'fail')
+  .validate()
+
+export const replacePost = mutation({
+  args: { id: v.id('posts'), post: PostService.args },
+  handler: async (ctx, args) => {
+    const updatedPost = await ctx.db
+      .replace('posts')
+      .one(args.id, args.post)
+      .validate()               // Validates foreign key relationships
+      .execute()
+
+    return updatedPost
+  },
+})
+```
+
+### Optimistic Replace
+
+```typescript
+export const optimisticReplaceUser = mutation({
+  args: { 
+    id: v.id('users'), 
+    user: UserService.args,
+    expectedVersion: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db.get(args.id)
+    
+    if (!existing) {
+      return { error: 'User not found' }
+    }
+    
+    if (existing.version !== args.expectedVersion) {
+      return { error: 'User was modified by another process' }
+    }
+    
+    const updatedUser = await ctx.db
+      .replace('users')
+      .one(args.id, {
+        ...args.user,
+        version: args.expectedVersion + 1,
+      })
+      .validate()
+      .execute()
+
+    return updatedUser
+  },
+})
+```
+
+## Type Safety
+
+Replace operations provide full type safety:
+
+```typescript
+export const replaceUser = mutation({
+  args: {
+    id: v.id('users'),
+    user: UserService.args,          // All fields required
+  },
+  handler: async (ctx, args) => {
+    // TypeScript ensures all required fields are provided
+    const updatedUser = await ctx.db
+      .replace('users')
+      .one(args.id, args.user)       // Type-checked replacement data
+      .execute()
+
+    return updatedUser               // Type: User document
+  },
+})
+
+export const replaceUserWithDefaults = mutation({
+  args: {
+    id: v.id('users'),
+    user: UserService.argsWithoutDefaults, // Default fields optional
+  },
+  handler: async (ctx, args) => {
+    // TypeScript knows defaults will be applied
+    const updatedUser = await ctx.db
+      .replace('users')
+      .withDefaults()                // Required when using optional fields
+      .one(args.id, args.user)
+      .execute()
+
+    return updatedUser
+  },
+})
+```
+
+## Next Steps
+
+<Cards>
+  <Card 
+    title="Patch Operations" 
+    description="Learn partial updates with patches"
+    href="/docs/database-operations/patch-operations" 
+  />
+  <Card 
+    title="Delete Operations" 
+    description="Remove records with cascade handling"
+    href="/docs/database-operations/delete-operations" 
+  />
+  <Card 
+    title="Batch Operations" 
+    description="Efficient bulk operations guide"
+    href="/docs/database-operations/batch-operations" 
+  />
+  <Card 
+    title="Unique Constraints" 
+    description="Deep dive into constraint handling"
+    href="/docs/advanced/unique-constraints" 
+  />
+</Cards>

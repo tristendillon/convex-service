@@ -13,7 +13,7 @@ importers:
         version: 1.25.4
       convex-sql:
         specifier: file:../
-        version: file:..(convex-helpers@0.1.100(convex@1.25.4)(typescript@5.8.3)(zod@3.25.76))(convex@1.25.4)(zod@3.25.76)
+        version: convex-service@file:..(convex-helpers@0.1.100(convex@1.25.4)(typescript@5.8.3)(zod@3.25.76))(convex@1.25.4)(zod@3.25.76)
     devDependencies:
       '@edge-runtime/vm':
         specifier: ^5.0.0
@@ -598,7 +598,7 @@ packages:
       zod:
         optional: true
 
-  convex-sql@file:..:
+  convex-service@file:..:
     resolution: {directory: .., type: directory}
     peerDependencies:
       convex: ^1.14.0
@@ -1681,7 +1681,7 @@ snapshots:
       typescript: 5.8.3
       zod: 3.25.76
 
-  convex-sql@file:..(convex-helpers@0.1.100(convex@1.25.4)(typescript@5.8.3)(zod@3.25.76))(convex@1.25.4)(zod@3.25.76):
+  convex-service@file:..(convex-helpers@0.1.100(convex@1.25.4)(typescript@5.8.3)(zod@3.25.76))(convex@1.25.4)(zod@3.25.76):
     dependencies:
       convex: 1.25.4
       convex-helpers: 0.1.100(convex@1.25.4)(typescript@5.8.3)(zod@3.25.76)

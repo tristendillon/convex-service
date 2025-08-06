@@ -1,0 +1,244 @@
+---
+title: Defining Services
+description: Learn how to define services with the fluent builder pattern
+---
+
+# Defining Services
+
+Services are the core building blocks of Convex Service. They combine Zod schema validation with a fluent builder API to define tables with rich metadata, validation rules, and relationships.
+
+## Basic Service Definition
+
+Every service starts with a Zod schema and uses the [`defineService()`](https://github.com/tristendillon/convex-service/blob/main/src/service.ts#L327-L333) function:
+
+```typescript
+import { defineService } from 'convex-service'
+import { z } from 'zod'
+
+const UserService = defineService(
+  z.object({
+    name: z.string().min(1, 'Name is required'),
+    email: z.string().email('Must be a valid email'),
+    age: z.number().min(13, 'Must be at least 13'),
+    isActive: z.boolean(),
+  })
+)
+```
+
+This creates a service builder that you can chain methods onto to configure the table.
+
+## Required Configuration
+
+Every service must have a name to be usable:
+
+```typescript
+const UserService = defineService(/* schema */).name('users') // ← Required: sets the table name
+```
+
+> **Implementation**: The [`.name()` method](https://github.com/tristendillon/convex-service/blob/main/src/service.ts#L70-L82) sets the table name and automatically adds Convex system fields (`_id` and `_creationTime`) to your schema.
+
+## Service Registration
+
+To use your service in mutations and queries, you must register it in a service schema:
+
+```typescript
+import { defineServiceSchema } from 'convex-service'
+
+// Register individual services
+export const ServiceSchema = defineServiceSchema({
+  users: UserService.register(),
+  posts: PostService.register(),
+  comments: CommentService.register(),
+}).register()
+
+// Also export for Convex's standard schema system
+export default defineSchema({
+  users: UserService,
+  posts: PostService,
+  comments: CommentService,
+})
+```
+
+> **Note**: The [`.register()`](https://github.com/tristendillon/convex-service/blob/main/src/service.ts#L301-L323) method converts the service builder into a format that can be used by the mutation system.
+
+## Complete Example
+
+Here's a comprehensive example showing a service with all common configurations:
+
+```typescript
+import { defineService, defineServiceSchema } from 'convex-service'
+import { zid } from 'convex-helpers/server/zod'
+import { z } from 'zod'
+
+const UserService = defineService(
+  z.object({
+    username: z.string().min(3).max(20),
+    email: z.string().email(),
+    displayName: z.string(),
+    bio: z.string().optional(),
+    avatar: z.string().url().optional(),
+    age: z.number().min(13),
+    isActive: z.boolean(),
+    profileId: zid('profiles').optional(), // Reference to profiles table
+    tags: z.array(z.string()).default([]),
+    metadata: z.record(z.string(), z.any()).optional(),
+  })
+)
+  .name('users')
+  .default('age', 18) // Set default values
+  .default('isActive', true)
+  .default('displayName', () => generateRandomUsername()) // Dynamic default
+  .unique('email') // Single field unique constraint
+  .unique(['username', 'displayName'], 'replace') // Composite unique with conflict resolution
+  .relation('profileId', 'profiles', 'cascade') // Foreign key relationship
+  .index('by_age', ['age']) // Standard index
+  .index('by_active_age', ['isActive', 'age']) // Composite index
+  .searchIndex('by_bio', {
+    // Search index
+    searchField: 'bio',
+    filterFields: ['isActive'],
+  })
+  .validate() // Enable validation for this service
+```
+
+> **Full Example**: This pattern is demonstrated in the test schema at [`test/src/convex/schema.ts:19-44`](https://github.com/tristendillon/convex-service/blob/main/test/src/convex/schema.ts#L19-L44).
+
+## Service Without Validation
+
+For maximum performance, you can define services without validation:
+
+```typescript
+const FastUserService = defineService(
+  z.object({
+    name: z.string(),
+    email: z.string(), // Schema only used for TypeScript types
+  })
+)
+  .name('users')
+  .unique('email') // Constraints still work
+  .index('by_email', ['email'])
+// No .validate() call = zero validation overhead
+```
+
+> **Performance**: Services without [`.validate()`](https://github.com/tristendillon/convex-service/blob/main/src/service.ts#L195-L206) have no validation overhead. The Zod schema is only used for TypeScript type generation.
+
+## Service Builder Chain
+
+The service builder is designed to be chainable. You can call methods in any order:
+
+```typescript
+const UserService = defineService(schema)
+  .name('users')
+  .validate() // Can be called early
+  .default('age', 18)
+  .unique('email')
+  .index('by_email', ['email'])
+  .relation('profileId', 'profiles', 'cascade')
+```
+
+All builder methods return `this`, allowing for fluent chaining.
+
+## Type Safety
+
+Services provide full TypeScript type safety:
+
+```typescript
+const UserService = defineService(
+  z.object({
+    name: z.string(),
+    age: z.number(),
+    isActive: z.boolean(),
+  })
+)
+  .name('users')
+  .default('age', 18)
+  .default('isActive', true)
+
+// Type-safe access to generated types
+type UserArgs = typeof UserService.args // Full args with all fields required
+type UserArgsOptional = typeof UserService.argsWithoutDefaults // Args with defaults optional
+type UserValidator = typeof UserService.validator // Convex validator
+type UserSchema = typeof UserService.schema // Zod schema with system fields
+```
+
+## Next Steps
+
+Now that you understand service definition, explore the specific builder methods:
+
+<Cards>
+  <Card
+    title="Builder Methods"
+    description="Complete reference for all builder methods"
+    href="/docs/service-builder/builder-methods"
+  />
+  <Card
+    title="Validation System"
+    description="Learn when and how validation is applied"
+    href="/docs/service-builder/validation-system"
+  />
+  <Card
+    title="Schema Registration"
+    description="How to register and use services in mutations"
+    href="/docs/service-builder/schema-registration"
+  />
+</Cards>
+
+## Common Patterns
+
+### Service with Complex Validation
+
+```typescript
+const PostService = defineService(
+  z.object({
+    title: z.string().min(1).max(200),
+    slug: z.string().regex(/^[a-z0-9-]+$/, 'Invalid slug format'),
+    content: z.string().min(10),
+    published: z.boolean(),
+    publishedAt: z.date().optional(),
+    tags: z.array(z.string()).max(10),
+    authorId: zid('users'),
+  })
+)
+  .name('posts')
+  .unique('slug')
+  .relation('authorId', 'users', 'cascade')
+  .index('by_published', ['published'])
+  .index('by_author_published', ['authorId', 'published'])
+  .validate() // Enable rich validation
+```
+
+### Service for Performance-Critical Operations
+
+```typescript
+const ViewCountService = defineService(
+  z.object({
+    entityId: z.string(),
+    entityType: z.enum(['post', 'user', 'comment']),
+    count: z.number(),
+  })
+)
+  .name('view_counts')
+  .index('by_entity', ['entityId', 'entityType'])
+  .default('count', 0)
+// No .validate() for maximum insert performance
+```
+
+### Service with Dynamic Defaults
+
+```typescript
+const AuditLogService = defineService(
+  z.object({
+    action: z.string(),
+    userId: zid('users'),
+    entityId: z.string().optional(),
+    timestamp: z.number(),
+    metadata: z.record(z.string(), z.any()).optional(),
+  })
+)
+  .name('audit_logs')
+  .default('timestamp', () => Date.now()) // Function-based default
+  .index('by_user_time', ['userId', 'timestamp'])
+  .validate()
+```
+
+Ready to learn about all available builder methods? Continue to [Builder Methods](/docs/service-builder/builder-methods).

@@ -1,0 +1,515 @@
+---
+title: Patch Operations
+description: Learn how to update records with partial data and validation
+---
+
+# Patch Operations
+
+Patch operations perform partial updates to existing records. Unlike replace operations, patches only modify specified fields while leaving other fields unchanged.
+
+## Basic Patch
+
+Update specific fields of an existing record:
+
+```typescript
+import { partial } from 'convex-helpers/validators'
+
+export const updateUser = mutation({
+  args: {
+    id: v.id('users'),
+    updates: partial(v.object(UserService.args.fields)), // Partial user object
+  },
+  handler: async (ctx, args) => {
+    const updatedUser = await ctx.db
+      .patch('users')
+      .one(args.id, args.updates)  // Apply partial updates
+      .execute()
+
+    return updatedUser
+  },
+})
+```
+
+> **Example**: See this pattern in [`test/src/convex/myFunctions.ts:130-143`](https://github.com/tristendillon/convex-service/blob/main/test/src/convex/myFunctions.ts#L130-L143)
+
+## Patch with Validation
+
+For services with validation enabled, add validation to patch operations:
+
+```typescript
+export const updateValidatedUser = mutation({
+  args: {
+    id: v.id('users'),
+    updates: partial(v.object(UserService.args.fields)),
+  },
+  handler: async (ctx, args) => {
+    const updatedUser = await ctx.db
+      .patch('users')
+      .one(args.id, args.updates)
+      .validate()                  // Validate the patched record
+      .execute()
+
+    return updatedUser
+  },
+})
+```
+
+> **Key Point**: Validation runs on the **entire record after patching**, not just the changed fields.
+
+## Operation Chain Pattern
+
+Patch operations follow the consistent builder pattern:
+
+```typescript
+ctx.db
+  .patch('tableName')              // Start patch operation
+  .one(id, partialData)            // Patch single record
+  .validate()                      // Optional: validate full record after patch
+  .execute()                       // Execute and return updated record
+```
+
+> **Implementation**: Patch operations are implemented in [`src/writer/patch.ts`](https://github.com/tristendillon/convex-service/blob/main/src/writer/patch.ts)
+
+## Batch Patch Operations
+
+Update multiple records with different partial data:
+
+```typescript
+export const updateManyUsers = mutation({
+  args: v.object({
+    updates: v.array(v.object({
+      id: v.id('users'),
+      ...partial(UserService.args.fields),
+    })),
+  }),
+  handler: async (ctx, args) => {
+    const updatedUsers = await ctx.db
+      .patch('users')
+      .many(
+        args.updates.map(({ id, ...updates }) => ({ 
+          id, 
+          value: updates 
+        }))
+      )
+      .validate()                  // Validates each patched record
+      .execute()
+
+    return updatedUsers
+  },
+})
+```
+
+> **Example**: Complete batch patch implementation at [`test/src/convex/myFunctions.ts:145-162`](https://github.com/tristendillon/convex-service/blob/main/test/src/convex/myFunctions.ts#L145-L162)
+
+## Patch Semantics
+
+Understanding how patch operations work:
+
+### Partial Updates Only
+
+Patch operations only modify specified fields:
+
+```typescript
+// Original record
+const originalUser = {
+  _id: "user123",
+  _creationTime: 1234567890,
+  name: "John Doe",
+  email: "john@example.com", 
+  age: 30,
+  bio: "Software developer",
+  isActive: true,
+}
+
+// Patch operation - only update name and age
+await ctx.db
+  .patch('users')
+  .one("user123", {
+    name: "John Smith",
+    age: 31,
+    // Other fields are not specified
+  })
+  .execute()
+
+// Result - only specified fields changed
+const patchedUser = {
+  _id: "user123",
+  _creationTime: 1234567890,
+  name: "John Smith",            // Updated
+  email: "john@example.com",     // Unchanged
+  age: 31,                       // Updated  
+  bio: "Software developer",     // Unchanged
+  isActive: true,                // Unchanged
+}
+```
+
+### Record Must Exist
+
+Patch operations require the target record to exist:
+
+```typescript
+export const updateUser = mutation({
+  args: { id: v.id('users'), updates: /* partial */ },
+  handler: async (ctx, args) => {
+    try {
+      const updatedUser = await ctx.db
+        .patch('users')
+        .one(args.id, args.updates)
+        .execute()
+
+      return updatedUser
+    } catch (error) {
+      if (error instanceof DocumentNotFoundError) {
+        return { error: 'User not found' }
+      }
+      throw error
+    }
+  },
+})
+```
+
+## Validation Behavior
+
+Patch validation has unique characteristics:
+
+### Full Record Validation
+
+Even though you're patching partial data, validation runs on the complete record after applying changes:
+
+```typescript
+const UserService = defineService(
+  z.object({
+    name: z.string().min(2),
+    email: z.string().email(),
+    age: z.number().min(13),
+  })
+)
+.name('users')
+.validate()
+
+export const updateUser = mutation({
+  args: {
+    id: v.id('users'),
+    updates: partial(v.object(UserService.args.fields)),
+  },
+  handler: async (ctx, args) => {
+    // Even if we're only updating age, the full record is validated
+    const updatedUser = await ctx.db
+      .patch('users')
+      .one(args.id, { age: 25 })  // Only updating age
+      .validate()                 // Validates name, email, AND age
+      .execute()
+
+    return updatedUser
+  },
+})
+```
+
+### Unique Constraint Checking
+
+Patch operations check unique constraints appropriately:
+
+```typescript
+const UserService = defineService(schema)
+  .name('users')
+  .unique('email')
+  .unique('username')
+  .validate()
+
+export const updateUserEmail = mutation({
+  args: {
+    id: v.id('users'),
+    email: v.string(),
+  },
+  handler: async (ctx, args) => {
+    try {
+      const updatedUser = await ctx.db
+        .patch('users')
+        .one(args.id, { email: args.email })
+        .validate()                // Checks email uniqueness
+        .execute()
+
+      return updatedUser
+    } catch (error) {
+      if (error instanceof UniqueConstraintError) {
+        return { error: 'Email already in use' }
+      }
+      throw error
+    }
+  },
+})
+```
+
+## Advanced Patterns
+
+### Conditional Patch
+
+```typescript
+export const conditionalUpdateUser = mutation({
+  args: {
+    id: v.id('users'),
+    updates: partial(v.object(UserService.args.fields)),
+    onlyIfActive: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    if (args.onlyIfActive) {
+      const existing = await ctx.db.get(args.id)
+      if (!existing?.isActive) {
+        return { error: 'User is not active' }
+      }
+    }
+
+    return await ctx.db
+      .patch('users')
+      .one(args.id, args.updates)
+      .validate()
+      .execute()
+  },
+})
+```
+
+### Atomic Counter Updates
+
+```typescript
+export const incrementUserScore = mutation({
+  args: {
+    id: v.id('users'),
+    increment: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.id)
+    if (!user) {
+      throw new Error('User not found')
+    }
+
+    const updatedUser = await ctx.db
+      .patch('users')
+      .one(args.id, {
+        score: user.score + args.increment,
+        lastUpdated: Date.now(),
+      })
+      .validate()
+      .execute()
+
+    return updatedUser
+  },
+})
+```
+
+### Patch with Relations
+
+```typescript
+const PostService = defineService(schema)
+  .name('posts')
+  .relation('authorId', 'users', 'cascade')
+  .relation('categoryId', 'categories', 'fail')
+  .validate()
+
+export const updatePost = mutation({
+  args: {
+    id: v.id('posts'),
+    updates: partial(v.object(PostService.args.fields)),
+  },
+  handler: async (ctx, args) => {
+    const updatedPost = await ctx.db
+      .patch('posts')
+      .one(args.id, args.updates)
+      .validate()                  // Validates foreign key relationships
+      .execute()
+
+    return updatedPost
+  },
+})
+```
+
+### Optimistic Patch with Version Control
+
+```typescript
+export const optimisticUpdateUser = mutation({
+  args: {
+    id: v.id('users'),
+    updates: partial(v.object(UserService.args.fields)),
+    expectedVersion: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db.get(args.id)
+    
+    if (!existing) {
+      return { error: 'User not found' }
+    }
+    
+    if (existing.version !== args.expectedVersion) {
+      return { error: 'User was modified by another process' }
+    }
+
+    const updatedUser = await ctx.db
+      .patch('users')
+      .one(args.id, {
+        ...args.updates,
+        version: args.expectedVersion + 1,
+        lastModified: Date.now(),
+      })
+      .validate()
+      .execute()
+
+    return updatedUser
+  },
+})
+```
+
+## Error Handling
+
+Patch operations can encounter several types of errors:
+
+```typescript
+import { 
+  ValidationError, 
+  UniqueConstraintError,
+  DocumentNotFoundError,
+  ConvexSQLError 
+} from 'convex-service'
+
+export const updateUser = mutation({
+  args: { id: v.id('users'), updates: /* partial */ },
+  handler: async (ctx, args) => {
+    try {
+      return await ctx.db
+        .patch('users')
+        .one(args.id, args.updates)
+        .validate()
+        .execute()
+    } catch (error) {
+      if (error instanceof DocumentNotFoundError) {
+        return { error: 'User not found' }
+      }
+      
+      if (error instanceof ValidationError) {
+        return { error: `Validation failed: ${error.message}` }
+      }
+      
+      if (error instanceof UniqueConstraintError) {
+        return { error: 'Unique constraint violation' }
+      }
+      
+      throw error
+    }
+  },
+})
+```
+
+## Performance Considerations
+
+### Validation Overhead
+
+```typescript
+// Maximum performance - no validation
+const fastUpdate = await ctx.db
+  .patch('users')
+  .one(id, updates)
+  .execute()
+
+// With validation - validates full record after patch
+const validatedUpdate = await ctx.db
+  .patch('users')
+  .one(id, updates)
+  .validate()           // Adds validation overhead
+  .execute()
+```
+
+### Field Selection
+
+Only include fields you actually want to update:
+
+```typescript
+// ❌ Unnecessary - updates unchanged fields (still works, but not optimal)
+await ctx.db
+  .patch('users')
+  .one(userId, {
+    name: user.name,      // Same value
+    email: newEmail,      // Actually changing
+    age: user.age,        // Same value
+  })
+  .execute()
+
+// ✅ Cleaner - only update what changed
+await ctx.db
+  .patch('users')  
+  .one(userId, {
+    email: newEmail,      // Only the changed field
+  })
+  .execute()
+```
+
+## Type Safety
+
+Patch operations provide excellent type safety with partial types:
+
+```typescript
+import { partial } from 'convex-helpers/validators'
+
+const UserService = defineService(
+  z.object({
+    name: z.string(),
+    email: z.string(),
+    age: z.number(),
+    isActive: z.boolean(),
+  })
+).name('users')
+
+export const updateUser = mutation({
+  args: {
+    id: v.id('users'),
+    updates: partial(v.object(UserService.args.fields)), // All fields optional
+  },
+  handler: async (ctx, args) => {
+    // TypeScript knows updates can contain any subset of user fields
+    const updatedUser = await ctx.db
+      .patch('users')
+      .one(args.id, args.updates)  // Type-safe partial update
+      .execute()
+
+    return updatedUser             // Type: User document
+  },
+})
+
+// Usage examples with type safety:
+updateUser({ 
+  id: "user123", 
+  updates: { name: "New Name" }           // ✅ Valid
+})
+
+updateUser({ 
+  id: "user123", 
+  updates: { age: 30, isActive: false }   // ✅ Valid  
+})
+
+updateUser({ 
+  id: "user123", 
+  updates: { invalidField: "value" }      // ❌ TypeScript error
+})
+```
+
+## Next Steps
+
+<Cards>
+  <Card 
+    title="Delete Operations" 
+    description="Learn how to delete records with cascading"
+    href="/docs/database-operations/delete-operations" 
+  />
+  <Card 
+    title="Batch Operations" 
+    description="Efficient bulk operation patterns"
+    href="/docs/database-operations/batch-operations" 
+  />
+  <Card 
+    title="Validation Deep Dive" 
+    description="Advanced validation techniques"
+    href="/docs/service-builder/validation-system" 
+  />
+  <Card 
+    title="Relations" 
+    description="Working with foreign key relationships"
+    href="/docs/advanced/relations" 
+  />
+</Cards>

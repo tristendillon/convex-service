@@ -15,7 +15,7 @@ export const baseOptions: BaseLayoutProps = {
           width="24"
           height="24"
           xmlns="http://www.w3.org/2000/svg"
-          aria-label="Logo"
+          aria-label="Convex Service Logo"
         >
           <circle cx={12} cy={12} r={12} fill="currentColor" />
         </svg>
@@ -23,6 +23,11 @@ export const baseOptions: BaseLayoutProps = {
       </>
     ),
   },
-  // see https://fumadocs.dev/docs/ui/navigation/links
-  links: [],
+  links: [
+    {
+      text: 'GitHub',
+      url: 'https://github.com/tristendillon/convex-service',
+      external: true,
+    },
+  ],
 }

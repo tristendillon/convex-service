@@ -1,0 +1,10 @@
+{
+  "title": "Database Operations",
+  "pages": [
+    "insert-operations",
+    "replace-operations",
+    "patch-operations", 
+    "delete-operations",
+    "batch-operations"
+  ]
+}
