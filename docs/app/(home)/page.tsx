@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import type { Metadata } from 'next'
 import {
   Package,
   Zap,
@@ -9,6 +10,15 @@ import {
   Search,
   Rocket,
 } from 'lucide-react'
+import { createMetadata } from '@/lib/metadata'
+
+export const metadata: Metadata = createMetadata({
+  title: 'Convex Service - Enhanced Convex with Zod Validation',
+  description:
+    'A TypeScript package that supercharges Convex with Zod schema validation and provides a fluent builder pattern for database operations with type safety, relations, and more.',
+  keywords: ['convex', 'relational', 'sql', 'convex-helpers'],
+})
+
 export default async function HomePage() {
   return (
     <main className="flex flex-1 flex-col">
