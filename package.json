@@ -3,9 +3,14 @@
   "version": "0.1.0",
   "description": "A TypeScript package that wraps Convex schemas with Zod integration",
   "main": "dist/index.js",
-  "module": "dist/index.js",
   "types": "dist/index.d.ts",
-  "sideEffects": false,
+  "module": "dist/index.js",
+  "exports": {
+    ".": "./dist/index.js",
+    "./v2": "./dist/v2/index.js",
+    "./v2/server": "./dist/v2/server/index.js",
+    "./v2/server/zod": "./dist/v2/server/zod/index.js"
+  },
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",

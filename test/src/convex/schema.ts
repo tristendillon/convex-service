@@ -1,5 +1,5 @@
 import { zid } from 'convex-helpers/server/zod'
-import { defineService, defineServiceSchema } from 'convex-sql'
+import { defineService, defineServiceSchema } from 'convex-service'
 import { defineSchema } from 'convex/server'
 import z from 'zod'
 

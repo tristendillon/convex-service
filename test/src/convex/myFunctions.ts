@@ -1,7 +1,7 @@
 import { v } from 'convex/values'
 import { DataModel } from './_generated/dataModel'
 import { ServiceSchema } from './schema'
-import { CreateServiceMutation } from 'convex-sql'
+import { CreateServiceMutation } from 'convex-service'
 import { partial } from 'convex-helpers/validators'
 
 const mutation = CreateServiceMutation<DataModel>(ServiceSchema.services)
