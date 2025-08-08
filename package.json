@@ -1,5 +1,5 @@
 {
-  "name": "convex-service",
+  "name": "@lunarhue/convex-service",
   "version": "0.1.0",
   "description": "A TypeScript package that wraps Convex schemas with Zod integration",
   "main": "dist/index.js",
@@ -40,5 +40,8 @@
   },
   "files": [
     "dist/**/*"
-  ]
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
 }
