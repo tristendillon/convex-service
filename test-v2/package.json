@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "convex": "^1.23.0",
-    "convex-service": "file:../"
+    "@lunarhue/convex-service": "file:../"
   },
   "devDependencies": {
     "@edge-runtime/vm": "^5.0.0",

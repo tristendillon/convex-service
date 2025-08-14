@@ -9,7 +9,8 @@
     ".": "./dist/index.js",
     "./v2": "./dist/v2/index.js",
     "./v2/server": "./dist/v2/server/index.js",
-    "./v2/server/zod": "./dist/v2/server/zod/index.js"
+    "./v2/server/zod": "./dist/v2/server/zod/index.js",
+    "./v2/server/hooks": "./dist/v2/server/hooks/index.js"
   },
   "scripts": {
     "build": "tsc",
@@ -29,16 +30,15 @@
   "author": "",
   "license": "MIT",
   "peerDependencies": {
-    "convex": "^1.14.0",
-    "convex-helpers": "^0.1.54",
-    "zod": "^3.23.8"
+    "convex": "^1.25.4",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
     "@typescript-eslint/eslint-plugin": "^7.0.0",
     "@typescript-eslint/parser": "^7.0.0",
     "@vitest/ui": "^1.2.0",
-    "convex-test": "^0.0.28",
+    "convex-test": "^0.0.38",
     "eslint": "^8.56.0",
     "typescript": "^5.3.0",
     "vitest": "^1.2.0"
@@ -48,5 +48,8 @@
   ],
   "publishConfig": {
     "access": "public"
+  },
+  "dependencies": {
+    "convex-helpers": "https://pkg.pr.new/get-convex/convex-helpers@701"
   }
 }

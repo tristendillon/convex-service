@@ -9,13 +9,13 @@ importers:
   .:
     dependencies:
       convex:
-        specifier: ^1.14.0
+        specifier: ^1.25.4
         version: 1.25.4(react@19.1.1)
       convex-helpers:
-        specifier: ^0.1.54
-        version: 0.1.100(@standard-schema/spec@1.0.0)(convex@1.25.4(react@19.1.1))(react@19.1.1)(typescript@5.8.3)(zod@3.25.76)
+        specifier: https://pkg.pr.new/get-convex/convex-helpers@701
+        version: https://pkg.pr.new/get-convex/convex-helpers@701(@standard-schema/spec@1.0.0)(convex@1.25.4(react@19.1.1))(react@19.1.1)(typescript@5.8.3)(zod@3.25.76)
       zod:
-        specifier: ^3.23.8
+        specifier: ^3.25.76
         version: 3.25.76
     devDependencies:
       '@types/node':
@@ -31,8 +31,8 @@ importers:
         specifier: ^1.2.0
         version: 1.6.1(vitest@1.6.1)
       convex-test:
-        specifier: ^0.0.28
-        version: 0.0.28(convex@1.25.4(react@19.1.1))
+        specifier: ^0.0.38
+        version: 0.0.38(convex@1.25.4(react@19.1.1))
       eslint:
         specifier: ^8.56.0
         version: 8.57.1
@@ -663,12 +663,13 @@ packages:
   confbox@0.1.8:
     resolution: {integrity: sha512-RMtmw0iFkeR4YV+fUOSucriAQNb9g8zFR52MWCtl+cCZOFRNL6zeB395vPzFhEjjn4fMxXudmELnl/KF/WrK6w==}
 
-  convex-helpers@0.1.100:
-    resolution: {integrity: sha512-In5VPKKlQdnv9WHpIKLXnLEKyHxaJYI0BXWTDJ27Ao6XUfpeiGPDGhOdqZ8y0DqTcQlDgmtSTmmttUv1fPWbdg==}
+  convex-helpers@https://pkg.pr.new/get-convex/convex-helpers@701:
+    resolution: {tarball: https://pkg.pr.new/get-convex/convex-helpers@701}
+    version: 0.1.101-alpha.1
     hasBin: true
     peerDependencies:
       '@standard-schema/spec': ^1.0.0
-      convex: ^1.13.0
+      convex: ^1.24.0
       hono: ^4.0.5
       react: ^17.0.2 || ^18.0.0 || ^19.0.0
       typescript: ^5.5
@@ -685,10 +686,10 @@ packages:
       zod:
         optional: true
 
-  convex-test@0.0.28:
-    resolution: {integrity: sha512-xqk45yqL3F6595t0fYRxERwI7WGeYbzRvIwzHOHfKNNEpyNmHkutnO7FdBSpCu1Om3O6gfnaJv1tNbCULVNFIA==}
+  convex-test@0.0.38:
+    resolution: {integrity: sha512-1o/3GvUR9gMLjiqq7SxchI/0OYQaWwbQC4INmB1SNt1WLBjUgEM8+brgpqrZwJ+Vb1DdGZokCVeihwT5IPk49w==}
     peerDependencies:
-      convex: ^1.12.1
+      convex: ^1.16.4
 
   convex@1.25.4:
     resolution: {integrity: sha512-LiGZZTmbe5iHWwDOYfSA00w+uDM8kgLC0ohFJW0VgQlKcs8famHCE6yuplk4wwXyj9Lhb1+yMRfrAD2ZEquqHg==}
@@ -1799,7 +1800,7 @@ snapshots:
 
   confbox@0.1.8: {}
 
-  convex-helpers@0.1.100(@standard-schema/spec@1.0.0)(convex@1.25.4(react@19.1.1))(react@19.1.1)(typescript@5.8.3)(zod@3.25.76):
+  convex-helpers@https://pkg.pr.new/get-convex/convex-helpers@701(@standard-schema/spec@1.0.0)(convex@1.25.4(react@19.1.1))(react@19.1.1)(typescript@5.8.3)(zod@3.25.76):
     dependencies:
       convex: 1.25.4(react@19.1.1)
     optionalDependencies:
@@ -1808,7 +1809,7 @@ snapshots:
       typescript: 5.8.3
       zod: 3.25.76
 
-  convex-test@0.0.28(convex@1.25.4(react@19.1.1)):
+  convex-test@0.0.38(convex@1.25.4(react@19.1.1)):
     dependencies:
       convex: 1.25.4(react@19.1.1)
 

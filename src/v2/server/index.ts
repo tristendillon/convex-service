@@ -1,4 +1,7 @@
-export * from './service'
+export { defineService } from './service'
+export { defineField } from './field'
+export { defineServiceSchema } from './schema'
+
 export * from './zod'
-export * from './field'
-export * from './types'
+export * from './hooks'
+export type * from './types'

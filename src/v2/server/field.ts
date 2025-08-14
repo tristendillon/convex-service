@@ -1,59 +1,80 @@
-import z, { ZodTypeAny } from 'zod'
-import { ServiceOperation } from './types'
+import * as z from 'zod/v4'
+import { ZodToConvex } from './zod/types'
+import type { HookDefinitionFromZod } from './hooks/types'
 
-type ServiceFieldDefault<T extends ZodTypeAny> = z.infer<T> | (() => z.infer<T>)
+type ExtractZodType<T extends Field> = T extends ServiceField<infer U>
+  ? U
+  : T extends z.ZodType
+  ? T
+  : never
 
-type ServiceFieldState<ZodValidator extends ZodTypeAny = ZodTypeAny> = {
+export type CreateZodSchemaFromFields<Fields extends GenericFields> =
+  z.ZodObject<{
+    [K in keyof Fields]: ExtractZodType<Fields[K]>
+  }>
+
+export type ServiceFieldsToConvex<Fields extends GenericFields> = ZodToConvex<
+  CreateZodSchemaFromFields<Fields>
+>
+
+export function createZodSchemaFromFields<T extends GenericFields>(
+  fields: T
+): CreateZodSchemaFromFields<T> {
+  const zodShape: Record<string, z.ZodType> = {}
+
+  for (const [key, field] of Object.entries(fields)) {
+    if (field instanceof ServiceField) {
+      zodShape[key] = field.toZod()
+    } else {
+      zodShape[key] = field
+    }
+  }
+
+  return z.object(zodShape) as CreateZodSchemaFromFields<T>
+}
+
+export type Field = ServiceField | z.ZodType
+export type GenericFields = Record<string, Field>
+
+type ServiceFieldDefault<T extends z.ZodType> = z.infer<T> | (() => z.infer<T>)
+
+type ServiceFieldState<ZodValidator extends z.ZodType = z.ZodType> = {
   unique: boolean
   default: ServiceFieldDefault<ZodValidator> | undefined
-  beforeOperation: (
-    operation: ServiceOperation<ZodValidator>
-  ) => Promise<z.infer<ZodValidator>> | z.infer<ZodValidator>
-  afterOperation: (
-    operation: ServiceOperation<ZodValidator>
-  ) => Promise<void> | void
+  hooks: HookDefinitionFromZod<ZodValidator>
 }
 
 export class ServiceField<
-  ZodValidator extends ZodTypeAny = ZodTypeAny,
+  ZodValidator extends z.ZodType = z.ZodType,
   State extends ServiceFieldState<ZodValidator> = ServiceFieldState<ZodValidator>
 > {
   private _zodValidator: ZodValidator
-  private _state: State = {} as State
+  private _state: State = {
+    unique: false,
+    default: undefined,
+    hooks: {},
+  } as State
   constructor(zodValidator: ZodValidator) {
     this._zodValidator = zodValidator
   }
 
-  private _mergeState(state: Partial<ServiceFieldState<ZodValidator>>) {
-    this._state = {
-      ...this._state,
-      ...state,
-    }
-    return this
-  }
-
   public unique(): this {
-    this._mergeState({ unique: true })
+    this._state.unique = true
     return this
   }
 
   public default(args: ServiceFieldDefault<ZodValidator>): this {
-    this._mergeState({ default: args })
+    this._state.default = args
     return this
   }
 
-  public beforeOperation(
-    callback: ServiceFieldState<ZodValidator>['beforeOperation']
-  ): this {
-    this._mergeState({ beforeOperation: callback })
+  public hooks(callback: (hooks: HookDefinitionFromZod<ZodValidator>) => void) {
+    callback(this._state.hooks)
     return this
   }
 
-  public afterOperation(
-    callback: ServiceFieldState<ZodValidator>['afterOperation']
-  ): this {
-    this._mergeState({ afterOperation: callback })
-    return this
+  public toZod(): ZodValidator {
+    return this._zodValidator
   }
 
   public register(): this {
@@ -70,6 +91,6 @@ export class ServiceField<
  *
  * @param zodValidator - The zod validator for the field.
  */
-export const defineField = <T extends ZodTypeAny>(zodValidator: T) => {
+export const defineField = <T extends z.ZodType>(zodValidator: T) => {
   return new ServiceField(zodValidator)
 }

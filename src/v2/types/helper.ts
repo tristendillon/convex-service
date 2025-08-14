@@ -1,3 +1,5 @@
+import { BetterOmit, GenericDocument, SystemFields } from 'convex/server'
+
 export type Expand<ObjectType extends Record<any, any>> =
   ObjectType extends Record<any, any>
     ? {
@@ -6,3 +8,6 @@ export type Expand<ObjectType extends Record<any, any>> =
     : never
 
 export type Merge<T, U> = T & U
+
+export type OmitSystemFieldsFromDocument<T extends GenericDocument> =
+  BetterOmit<T, '_id' | keyof SystemFields>

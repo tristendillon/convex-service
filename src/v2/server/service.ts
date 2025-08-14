@@ -1,29 +1,34 @@
 import {
-  GenericDataModel,
+  defineTable,
   GenericTableIndexes,
   GenericTableSearchIndexes,
   GenericTableVectorIndexes,
   IndexTiebreakerField,
   TableDefinition,
-  defineTable,
+  type SearchIndexConfig,
+  type VectorIndexConfig,
 } from 'convex/server'
-import { GenericValidator, v } from 'convex/values'
-import z, { ZodTypeAny } from 'zod'
-import { Expand, Merge } from '../types'
-import { ServiceField, defineField } from './field'
-import { ServiceOperation } from './types'
-
-type Field = ServiceField | z.ZodTypeAny // | RegisteredServiceField
-type GenericFields = Record<string, Field>
+import { GenericValidator } from 'convex/values'
+import * as z from 'zod/v4'
+import { Expand } from '../types'
+import {
+  GenericFields,
+  ServiceField,
+  ServiceFieldsToConvex,
+  createZodSchemaFromFields,
+  defineField,
+} from './field'
+import { zodToConvex } from './zod'
+import type { FieldHooks, ServiceHooks } from './hooks'
 
 /**
  * @internal
  */
 export type VectorIndex<Fields extends GenericFields> = {
   indexDescriptor: string
-  vectorField: string
+  vectorField: FieldPaths<Fields>
   dimensions: number
-  filterFields: string[]
+  filterFields: FieldPaths<Fields>[]
 }
 
 /**
@@ -31,7 +36,7 @@ export type VectorIndex<Fields extends GenericFields> = {
  */
 export type Index<Fields extends GenericFields> = {
   indexDescriptor: string
-  fields: string[]
+  fields: FieldPaths<Fields>[]
 }
 
 /**
@@ -39,46 +44,23 @@ export type Index<Fields extends GenericFields> = {
  */
 export type SearchIndex<Fields extends GenericFields> = {
   indexDescriptor: string
-  searchField: string
-  filterFields: string[]
+  searchField: FieldPaths<Fields>
+  filterFields: FieldPaths<Fields>[]
 }
-
-type UpdateIndexStrategies<
-  Fields extends GenericFields,
-  Indexes extends IndexStrategies,
-  IndexName extends string,
-  FirstFieldPath extends FieldPaths<Fields>,
-  RestFieldPaths extends FieldPaths<Fields>[]
-> = Indexes & {
-  indexes: Expand<
-    Indexes['indexes'] &
-      Record<
-        IndexName,
-        [FirstFieldPath, ...RestFieldPaths, IndexTiebreakerField]
-      >
-  >
-}
-
 type IndexStrategies = {
   indexes: GenericTableIndexes
   searchIndexes: GenericTableSearchIndexes
   vectorIndexes: GenericTableVectorIndexes
 }
 
-type ServiceValidators = {
-  validator: GenericValidator
+type ServiceValidators<
+  Fields extends GenericFields,
+  State extends ServiceState<Fields>
+> = {
+  validator: ServiceFieldsToConvex<Fields>
   withoutDefaults: GenericValidator
   withDefaults: GenericValidator
 }
-
-// Use a looser constraint for BuildZodSchema
-type BuildZodSchema<Fields extends GenericFields> = z.ZodObject<{
-  [K in keyof Fields]: Fields[K] extends ServiceField<infer T>
-    ? T
-    : Fields[K] extends ZodTypeAny
-    ? Fields[K]
-    : ZodTypeAny
-}>
 
 type CompositeUnique<Fields extends GenericFields> = {
   fields: FieldPaths<Fields>
@@ -86,35 +68,98 @@ type CompositeUnique<Fields extends GenericFields> = {
 }
 
 type ServiceState<Fields extends GenericFields> = {
-  validators: ServiceValidators
+  validators: ServiceValidators<Fields, ServiceState<Fields>>
   compositeUniques: CompositeUnique<Fields>[]
-  beforeOperation(
-    operation: ServiceOperation<BuildZodSchema<Fields>>
-  ): Promise<BuildZodSchema<Fields>> | BuildZodSchema<Fields>
-  afterOperation(
-    operation: ServiceOperation<BuildZodSchema<Fields>>
-  ): Promise<void> | void
 }
 
 type OnConflictPolicy = 'replace' | 'fail'
 
-type FieldPaths<Fields> = keyof Fields
+type FieldPaths<Fields> = keyof Fields & string
 
 type AnyServiceFields = Record<string, ServiceField<any, any>>
 
-export class Service<
+export type GenericRegisteredService = RegisteredService<any, any, any>
+
+export class RegisteredService<
   Fields extends GenericFields,
+  Validator extends GenericValidator,
   Indexes extends IndexStrategies = IndexStrategies
 > {
   private _table: TableDefinition
-  private _state: ServiceState<AnyServiceFields> =
-    {} as ServiceState<AnyServiceFields>
+  private _state: ServiceState<Fields> = {} as ServiceState<Fields>
   private _indexStrategies = {
     indexes: [] as Index<Fields>[],
     searchIndexes: [] as SearchIndex<Fields>[],
     vectorIndexes: [] as VectorIndex<Fields>[],
   }
-  private _fields: AnyServiceFields
+  private _fields: Fields = {} as Fields
+  private _serviceHooks: ServiceHooks | undefined
+  private _fieldHooks: FieldHooks | undefined
+  private _name: string = ''
+  constructor(
+    state: ServiceState<Fields>,
+    fields: Fields,
+    name: string,
+    options: {
+      serviceHooks?: ServiceHooks
+      fieldHooks?: FieldHooks
+    } = {}
+  ) {
+    this._name = name
+    this._table = defineTable(state.validators.validator)
+    this._fields = fields
+    this._state = state
+    this._serviceHooks = options.serviceHooks
+    this._fieldHooks = options.fieldHooks
+  }
+
+  public export() {
+    return {
+      name: this._name,
+      table: this._table,
+      fields: this._fields,
+      state: this._state,
+      serviceHooks: this._serviceHooks,
+      fieldHooks: this._fieldHooks,
+    }
+  }
+
+  public toConvexTable(): TableDefinition<
+    Validator,
+    Indexes['indexes'],
+    Indexes['searchIndexes'],
+    Indexes['vectorIndexes']
+  > {
+    return this._table as TableDefinition<
+      Validator,
+      Indexes['indexes'],
+      Indexes['searchIndexes'],
+      Indexes['vectorIndexes']
+    >
+  }
+}
+
+export type GenericService = Service<any, any>
+
+export class Service<
+  Fields extends GenericFields,
+  Indexes extends IndexStrategies = IndexStrategies
+> {
+  private _state: ServiceState<Fields> = {
+    validators: {
+      validator: {},
+      withoutDefaults: {},
+      withDefaults: {},
+    },
+    compositeUniques: [],
+  } as unknown as ServiceState<Fields>
+  private _indexStrategies = {
+    indexes: [] as Index<Fields>[],
+    searchIndexes: [] as SearchIndex<Fields>[],
+    vectorIndexes: [] as VectorIndex<Fields>[],
+  }
+  private _fields: Fields = {} as Fields
+  private _zodSchema: z.ZodType
   private _name: string = ''
 
   constructor(fields: Fields) {
@@ -128,37 +173,13 @@ export class Service<
         acc[key] = defineField(value).register()
       }
       return acc
-    }, {} as AnyServiceFields)
+    }, {} as AnyServiceFields) as Fields
 
-    this._table = defineTable({
-      test: v.string(),
-    })
-  }
+    this._zodSchema = createZodSchemaFromFields(this._fields)
 
-  private _mergeState(state: Partial<ServiceState<AnyServiceFields>>) {
-    this._state = {
-      ...this._state,
-      ...state,
-    }
-    return this
-  }
-
-  public beforeOperation(
-    callback: ServiceState<AnyServiceFields>['beforeOperation']
-  ): this {
-    this._mergeState({
-      beforeOperation: callback as any,
-    })
-    return this
-  }
-
-  public afterOperation(
-    callback: ServiceState<AnyServiceFields>['afterOperation']
-  ): this {
-    this._mergeState({
-      afterOperation: callback as any,
-    })
-    return this
+    this._state.validators.validator = zodToConvex(
+      this._zodSchema
+    ) as unknown as ServiceFieldsToConvex<Fields>
   }
 
   public compositeUnique(
@@ -194,33 +215,91 @@ export class Service<
   > {
     this._indexStrategies.indexes.push({
       indexDescriptor: name,
-      fields: fields.map((field) => field.toString()),
+      fields: fields,
     })
     return this
   }
 
-  public searchIndex(name: string, fields: FieldPaths<Fields>[]): this {
+  public searchIndex<
+    IndexName extends string,
+    SearchField extends FieldPaths<Fields>,
+    FilterFields extends FieldPaths<Fields> = never
+  >(
+    name: IndexName,
+    indexConfig: Expand<SearchIndexConfig<SearchField, FilterFields>>
+  ): Service<
+    Fields,
+    Indexes & {
+      searchIndexes: Expand<
+        Indexes['searchIndexes'] &
+          Record<
+            IndexName,
+            {
+              searchField: SearchField
+              filterFields: FilterFields
+            }
+          >
+      >
+    }
+  > {
+    this._indexStrategies.searchIndexes.push({
+      indexDescriptor: name,
+      searchField: indexConfig.searchField,
+      filterFields: indexConfig.filterFields || [],
+    })
     return this
   }
 
-  public vectorIndex(name: string, fields: FieldPaths<Fields>[]): this {
+  public vectorIndex<
+    IndexName extends string,
+    VectorField extends FieldPaths<Fields>,
+    FilterFields extends FieldPaths<Fields> = never
+  >(
+    name: IndexName,
+    indexConfig: Expand<VectorIndexConfig<VectorField, FilterFields>>
+  ): Service<
+    Fields,
+    Indexes & {
+      vectorIndexes: Expand<
+        Indexes['vectorIndexes'] &
+          Record<
+            IndexName,
+            {
+              vectorField: VectorField
+              dimensions: number
+              filterFields: FilterFields
+            }
+          >
+      >
+    }
+  > {
+    this._indexStrategies.vectorIndexes.push({
+      indexDescriptor: name,
+      vectorField: indexConfig.vectorField,
+      dimensions: indexConfig.dimensions,
+      filterFields: indexConfig.filterFields || [],
+    })
     return this
   }
 
-  public register() {}
-
-  public toConvexTable() {
-    return this._table as TableDefinition<
-      ServiceValidators['validator'],
-      Indexes['indexes'],
-      Indexes['searchIndexes'],
-      Indexes['vectorIndexes']
-    >
+  public register(
+    options: {
+      serviceHooks?: ServiceHooks
+      fieldHooks?: FieldHooks
+    } = {}
+  ) {
+    type Validator = typeof this._state.validators.validator
+    return new RegisteredService<Fields, Validator, Indexes>(
+      this._state,
+      this._fields,
+      this._name,
+      options
+    )
   }
 }
 
 export const defineService = <
-  Fields extends Record<string, ServiceField | z.ZodTypeAny>
+  Fields extends Record<string, ServiceField | z.ZodType>
 >(
   fields: Fields
 ) => {

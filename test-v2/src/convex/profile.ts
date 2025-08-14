@@ -1,5 +1,5 @@
-import { defineService } from 'convex-service/v2'
-import { z } from 'zod'
+import { defineService } from '@lunarhue/convex-service/v2'
+import { z } from 'zod/v4'
 import { defaultFields } from './fields'
 
 export const profileService = defineService({
@@ -8,3 +8,4 @@ export const profileService = defineService({
 })
   .name('profiles')
   .index('by_updated_by', ['updatedBy'])
+  .register()
