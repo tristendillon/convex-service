@@ -4,7 +4,9 @@ import type {
   DocumentByName,
 } from 'convex/server'
 import type { OmitSystemFieldsFromDocument } from '../../types'
-import type { OperationHook } from './types'
+import type { HookDefinitionFromDataModel } from './types'
+
+export type GenericServiceHooks = ServiceHooks<any, any>
 
 export class ServiceHooks<
   DataModel extends GenericDataModel = GenericDataModel,
@@ -14,26 +16,33 @@ export class ServiceHooks<
     TableName
   >
 > {
-  private _before: OperationHook<DataModel, TableName, Document>[] = []
-  private _after: OperationHook<DataModel, TableName>[] = []
+  private _before:
+    | HookDefinitionFromDataModel<DataModel, TableName, Document>['before']
+    | undefined = undefined
+  private _after:
+    | HookDefinitionFromDataModel<DataModel, TableName>['after']
+    | undefined = undefined
 
-  before(hook: OperationHook<DataModel, TableName, Document>) {
-    this._before.push(hook)
+  before(
+    hook: HookDefinitionFromDataModel<DataModel, TableName, Document>['before']
+  ) {
+    this._before = hook
     return this
   }
 
-  after(hook: OperationHook<DataModel, TableName>) {
-    this._after.push(hook)
+  after(hook: HookDefinitionFromDataModel<DataModel, TableName>['after']) {
+    this._after = hook
     return this
   }
 
   static getServiceHooks<
     SDataModel extends GenericDataModel,
     STableName extends TableNamesInDataModel<SDataModel>
-  >(
-    serviceHooks: ServiceHooks<SDataModel, STableName>
-  ): ServiceHooks<SDataModel, STableName> {
-    return serviceHooks
+  >(serviceHooks: ServiceHooks<SDataModel, STableName>) {
+    return {
+      before: serviceHooks._before,
+      after: serviceHooks._after,
+    }
   }
 }
 

@@ -4,19 +4,15 @@ import {
   TableNamesInDataModel,
 } from 'convex/server'
 import { OmitSystemFieldsFromDocument } from '../../types'
-import type {
-  HookBuilder,
-  HookDefinitionFromDataModel,
-  HookDefinitionFromZod,
-  OperationHookFromDataModel,
-} from './types'
-import type { z } from 'zod/v4'
+import type { HookBuilder, HookDefinitionFromDataModel } from './types'
 
 export type FieldHookFromDataModel<
   DataModel extends GenericDataModel = GenericDataModel,
   TableName extends TableNamesInDataModel<DataModel> = TableNamesInDataModel<DataModel>,
   Fields extends Record<string, any> = Record<string, any>
 > = HookDefinitionFromDataModel<DataModel, TableName, Fields[keyof Fields]>
+
+export type GenericFieldHooks = FieldHooks<any, any, any>
 
 export class FieldHooks<
   DataModel extends GenericDataModel = GenericDataModel,
@@ -41,18 +37,25 @@ export class FieldHooks<
   ): HookBuilder<DataModel, TableName, Fields, Fields[K]> {
     return {
       before: (
-        hook: OperationHookFromDataModel<DataModel, TableName, Fields[K]>
+        hook: HookDefinitionFromDataModel<
+          DataModel,
+          TableName,
+          Fields[K]
+        >['before']
       ) => ({
-        after: (afterHook: OperationHookFromDataModel<DataModel, TableName>) =>
-          this.addHook(fieldName, { before: hook, after: afterHook }),
+        after: (
+          afterHook: HookDefinitionFromDataModel<DataModel, TableName>['after']
+        ) => this.addHook(fieldName, { before: hook, after: afterHook }),
       }),
-      after: (hook: OperationHookFromDataModel<DataModel, TableName>) => ({
+      after: (
+        hook: HookDefinitionFromDataModel<DataModel, TableName>['after']
+      ) => ({
         before: (
-          beforeHook: OperationHookFromDataModel<
+          beforeHook: HookDefinitionFromDataModel<
             DataModel,
             TableName,
             Fields[K]
-          >
+          >['before']
         ) => this.addHook(fieldName, { before: beforeHook, after: hook }),
       }),
     }

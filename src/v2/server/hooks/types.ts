@@ -1,32 +1,26 @@
-import type { GenericDataModel, TableNamesInDataModel } from 'convex/server'
-import type { ServiceOperation, ServiceOperationByDataModel } from '../types'
+import type {
+  GenericDataModel,
+  GenericMutationCtx,
+  TableNamesInDataModel,
+} from 'convex/server'
+import type { ServiceOperationByDataModel } from '../types'
 import type { FieldHooks } from './field'
-import type { z } from 'zod/v4'
-
-export type OperationHookFromZod<Value extends any> = (
-  operation: ServiceOperation<Value>
-) => Promise<Value> | Value
-
-export type OperationHookFromDataModel<
-  DataModel extends GenericDataModel,
-  TableName extends TableNamesInDataModel<DataModel> = TableNamesInDataModel<DataModel>,
-  ReturnType = void
-> = (
-  operation: ServiceOperationByDataModel<DataModel, TableName>
-) => Promise<ReturnType> | ReturnType
 
 export type HookDefinitionFromDataModel<
   DataModel extends GenericDataModel,
   TableName extends TableNamesInDataModel<DataModel>,
   FieldType = any
 > = {
-  before: OperationHookFromDataModel<DataModel, TableName, FieldType>
-  after: OperationHookFromDataModel<DataModel, TableName>
-}
-
-export type HookDefinitionFromZod<ZodValidator extends z.ZodType> = {
-  before: OperationHookFromZod<z.infer<ZodValidator>>
-  after: OperationHookFromZod<z.infer<ZodValidator>>
+  before: (
+    operation: ServiceOperationByDataModel<DataModel, TableName>
+  ) => Promise<FieldType> | FieldType
+  after: (
+    operation: ServiceOperationByDataModel<
+      DataModel,
+      TableName,
+      GenericMutationCtx<DataModel>
+    >
+  ) => Promise<void> | void
 }
 
 export type HookBuilder<
@@ -36,15 +30,19 @@ export type HookBuilder<
   FieldType
 > = {
   before: (
-    hook: OperationHookFromDataModel<DataModel, TableName, FieldType>
+    hook: HookDefinitionFromDataModel<DataModel, TableName, FieldType>['before']
   ) => {
     after: (
-      afterHook: OperationHookFromDataModel<DataModel, TableName>
+      afterHook: HookDefinitionFromDataModel<DataModel, TableName>['after']
     ) => FieldHooks<DataModel, TableName, Fields>
   }
-  after: (hook: OperationHookFromDataModel<DataModel, TableName>) => {
+  after: (hook: HookDefinitionFromDataModel<DataModel, TableName>['after']) => {
     before: (
-      beforeHook: OperationHookFromDataModel<DataModel, TableName, FieldType>
+      beforeHook: HookDefinitionFromDataModel<
+        DataModel,
+        TableName,
+        FieldType
+      >['before']
     ) => FieldHooks<DataModel, TableName, Fields>
   }
 }

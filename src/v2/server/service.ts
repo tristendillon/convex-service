@@ -19,7 +19,7 @@ import {
   defineField,
 } from './field'
 import { zodToConvex } from './zod'
-import type { FieldHooks, ServiceHooks } from './hooks'
+import type { GenericFieldHooks, GenericServiceHooks } from './hooks'
 
 /**
  * @internal
@@ -93,16 +93,16 @@ export class RegisteredService<
     vectorIndexes: [] as VectorIndex<Fields>[],
   }
   private _fields: Fields = {} as Fields
-  private _serviceHooks: ServiceHooks | undefined
-  private _fieldHooks: FieldHooks | undefined
+  private _serviceHooks: GenericServiceHooks | undefined
+  private _fieldHooks: GenericFieldHooks | undefined
   private _name: string = ''
   constructor(
     state: ServiceState<Fields>,
     fields: Fields,
     name: string,
     options: {
-      serviceHooks?: ServiceHooks
-      fieldHooks?: FieldHooks
+      serviceHooks?: GenericServiceHooks
+      fieldHooks?: GenericFieldHooks
     } = {}
   ) {
     this._name = name
@@ -284,8 +284,8 @@ export class Service<
 
   public register(
     options: {
-      serviceHooks?: ServiceHooks
-      fieldHooks?: FieldHooks
+      serviceHooks?: GenericServiceHooks
+      fieldHooks?: GenericFieldHooks
     } = {}
   ) {
     type Validator = typeof this._state.validators.validator

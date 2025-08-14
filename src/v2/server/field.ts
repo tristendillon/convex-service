@@ -1,6 +1,6 @@
 import * as z from 'zod/v4'
 import { ZodToConvex } from './zod/types'
-import type { HookDefinitionFromZod } from './hooks/types'
+import type { ServiceOperation } from './types'
 
 type ExtractZodType<T extends Field> = T extends ServiceField<infer U>
   ? U
@@ -38,10 +38,32 @@ export type GenericFields = Record<string, Field>
 
 type ServiceFieldDefault<T extends z.ZodType> = z.infer<T> | (() => z.infer<T>)
 
+type ServiceFieldHooks<ZodValidator extends z.ZodType = z.ZodType> = {
+  before?: (
+    operation: ServiceOperation<z.infer<ZodValidator>>
+  ) => Promise<z.infer<ZodValidator>> | z.infer<ZodValidator>
+  after?: (
+    operation: ServiceOperation<z.infer<ZodValidator>>
+  ) => Promise<z.infer<ZodValidator>> | z.infer<ZodValidator>
+}
+
+type ServiceFieldHookSetters<ZodValidator extends z.ZodType = z.ZodType> = {
+  before: (
+    hook: (
+      operation: ServiceOperation<z.infer<ZodValidator>>
+    ) => Promise<z.infer<ZodValidator>> | z.infer<ZodValidator>
+  ) => void
+  after: (
+    hook: (
+      operation: ServiceOperation<z.infer<ZodValidator>>
+    ) => Promise<z.infer<ZodValidator>> | z.infer<ZodValidator>
+  ) => void
+}
+
 type ServiceFieldState<ZodValidator extends z.ZodType = z.ZodType> = {
   unique: boolean
   default: ServiceFieldDefault<ZodValidator> | undefined
-  hooks: HookDefinitionFromZod<ZodValidator>
+  hooks: ServiceFieldHooks<ZodValidator>
 }
 
 export class ServiceField<
@@ -68,8 +90,16 @@ export class ServiceField<
     return this
   }
 
-  public hooks(callback: (hooks: HookDefinitionFromZod<ZodValidator>) => void) {
-    callback(this._state.hooks)
+  public hooks(callback: (hooks: ServiceFieldHookSetters<ZodValidator>) => void) {
+    const hookHandlers: ServiceFieldHookSetters<ZodValidator> = {
+      before: (hook) => {
+        this._state.hooks.before = hook
+      },
+      after: (hook) => {
+        this._state.hooks.after = hook
+      },
+    }
+    callback(hookHandlers)
     return this
   }
 
