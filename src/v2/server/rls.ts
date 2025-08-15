@@ -31,26 +31,23 @@ export class RlsRules<
     return this
   }
 
-  async checkRule(
-    operation: RlsOperation,
-    doc: DocumentByName<DataModel, TableName>,
-    ctx: GenericQueryCtx<DataModel>
-  ): Promise<boolean> {
-    const handler = this.rules.get(operation)
-    if (!handler) {
-      return true // Default to allow if no rule is defined
-    }
-    return await handler({ doc, ctx })
+
+
+  static hasRule<
+    DataModel extends GenericDataModel,
+    TableName extends TableNamesInDataModel<DataModel>
+  >(rls: RlsRules<DataModel, TableName>, operation: RlsOperation): boolean {
+    return rls.rules.has(operation)
   }
 
-  hasRule(operation: RlsOperation): boolean {
-    return this.rules.has(operation)
-  }
-
-  getRule(
+  static getRule<
+    DataModel extends GenericDataModel,
+    TableName extends TableNamesInDataModel<DataModel>
+  >(
+    rls: RlsRules<DataModel, TableName>,
     operation: RlsOperation
   ): RlsRuleHandler<DataModel, TableName> | undefined {
-    return this.rules.get(operation)
+    return rls.rules.get(operation)
   }
 }
 

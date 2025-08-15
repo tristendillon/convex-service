@@ -9,6 +9,6 @@ export const serviceSchema = defineServiceSchema({
 })
 
 export default defineSchema({
-  users: userService.toConvexTable(),
-  profiles: profileService.toConvexTable(),
+  users: userService,
+  profiles: profileService,
 })

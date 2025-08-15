@@ -3,17 +3,35 @@ import {
   defineService,
   createFieldHooks,
   createRlsRules,
+  createServiceHooks,
 } from '@lunarhue/convex-service/v2'
 import { defaultFields, emailField, profileIdField } from './fields'
 import { z } from 'zod/v4'
 import { DataModel } from './_generated/dataModel'
 import { mutation } from './_generated/server'
 
+import { defineTable } from 'convex/server'
+
 const fieldHooks = createFieldHooks<DataModel, 'users'>()
 const rls = createRlsRules<DataModel, 'users'>()
+const serviceHooks = createServiceHooks<DataModel, 'users'>()
 
 rls.rule('insert', async ({ doc, ctx }) => {
   return true
+})
+rls.rule('update', async ({ doc, ctx }) => {
+  return true
+})
+rls.rule('delete', async ({ doc, ctx }) => {
+  return true
+})
+rls.rule('read', async ({ doc, ctx }) => {
+  return true
+})
+
+serviceHooks.before(async ({ value, operation }) => {
+  console.log('serviceHooks.before', value, operation)
+  return value
 })
 
 fieldHooks.field('fullName').before(async ({ value, operation }) => {
@@ -36,6 +54,7 @@ export const userService = defineService({
   .compositeUnique(['email', 'uuid'], 'fail')
   .register({
     fieldHooks: fieldHooks,
+    serviceHooks: serviceHooks,
     rls: rls,
   })
 

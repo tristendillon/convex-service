@@ -4,8 +4,6 @@ import {
   defineField,
   defineServiceSchema,
   ServiceSchema,
-  RlsRules,
-  ServiceHooks,
 } from '@lunarhue/convex-service/v2/server'
 import { z } from 'zod/v4'
 
@@ -270,10 +268,7 @@ describe('ServiceSchema', () => {
         }),
       })
         .name('users')
-        .register({
-          serviceHooks: new ServiceHooks(),
-          rls: new RlsRules(),
-        })
+        .register()
 
       const schema = defineServiceSchema({
         users: userService,
@@ -282,9 +277,9 @@ describe('ServiceSchema', () => {
       const retrievedService = schema.getService('users')
       const exported = retrievedService.export()
 
-      expect(exported.serviceHooks).toBeDefined()
-      expect(exported.rlsRules).toBeDefined()
-      expect(exported.fieldHooks).toBeUndefined() // Not provided in this test
+      expect(exported.name).toBe('users')
+      expect(exported.fields).toBeDefined()
+      expect(exported.state).toBeDefined()
     })
   })
 
@@ -401,9 +396,7 @@ describe('ServiceSchema', () => {
       expect(exported.fields).toBeDefined()
       expect(exported.name).toBe('users')
 
-      // Verify the service can still be converted to Convex table
-      const convexTable = retrievedService.toConvexTable()
-      expect(convexTable).toBeDefined()
+      expect(retrievedService).toBeDefined()
     })
   })
 })

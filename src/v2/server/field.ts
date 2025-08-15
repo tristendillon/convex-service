@@ -1,6 +1,7 @@
 import * as z from 'zod/v4'
 import { ZodToConvex } from './zod/types'
 import type { ServiceOperation } from './types'
+import type { Expand } from '../types'
 
 type ExtractZodType<T extends Field> = T extends ServiceField<infer U>
   ? U
@@ -24,7 +25,7 @@ export function createZodSchemaFromFields<T extends GenericFields>(
 
   for (const [key, field] of Object.entries(fields)) {
     if (field instanceof ServiceField) {
-      zodShape[key] = field.toZod()
+      zodShape[key] = ServiceField.toZod(field)
     } else {
       zodShape[key] = field
     }
@@ -68,15 +69,22 @@ export class ServiceField<
   State extends ServiceFieldState<ZodValidator> = ServiceFieldState<ZodValidator>
 > {
   private _zodValidator: ZodValidator
-  private _state: State = {
+  private _state = {
     unique: false,
-    hooks: {},
-  } as State
+    hooks: {
+      before: {},
+      after: {},
+    },
+  }
+
   constructor(zodValidator: ZodValidator) {
     this._zodValidator = zodValidator
   }
 
-  public unique(): this {
+  public unique(): ServiceField<
+    ZodValidator,
+    Expand<Omit<State, 'unique'> & { unique: true }>
+  > {
     this._state.unique = true
     return this
   }
@@ -96,12 +104,12 @@ export class ServiceField<
     return this
   }
 
-  public isUnique(): boolean {
-    return this._state.unique
+  static toZod(field: ServiceField): z.ZodType {
+    return field._zodValidator
   }
 
-  public toZod(): ZodValidator {
-    return this._zodValidator
+  static isUnique(field: ServiceField): boolean {
+    return field._state.unique
   }
 }
 

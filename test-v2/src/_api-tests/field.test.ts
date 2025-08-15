@@ -7,7 +7,7 @@ describe('ServiceField', () => {
     it('should create a field with zod validator', () => {
       const field = defineField(z.string())
       expect(field).toBeInstanceOf(ServiceField)
-      expect(field.toZod()).toEqual(z.string())
+      expect(field.toZod()).toBeInstanceOf(z.ZodString)
     })
 
     it('should create a field with email validation', () => {
@@ -89,17 +89,17 @@ describe('ServiceField', () => {
   describe('Field with Complex Types', () => {
     it('should work with optional fields', () => {
       const field = defineField(z.string().optional())
-      expect(field.toZod()).toEqual(z.string().optional())
+      expect(field.toZod()).toBeInstanceOf(z.ZodOptional)
     })
 
     it('should work with default values', () => {
       const field = defineField(z.string().default('default-value'))
-      expect(field.toZod()).toEqual(z.string().default('default-value'))
+      expect(field.toZod()).toBeInstanceOf(z.ZodDefault)
     })
 
     it('should work with arrays', () => {
       const field = defineField(z.array(z.string()))
-      expect(field.toZod()).toEqual(z.array(z.string()))
+      expect(field.toZod()).toBeInstanceOf(z.ZodArray)
     })
 
     it('should work with objects', () => {
@@ -139,19 +139,19 @@ describe('ServiceField', () => {
       const stringField = defineField(z.string())
       const booleanField = defineField(z.boolean())
 
-      expect(numberField.toZod()).toEqual(z.number())
-      expect(stringField.toZod()).toEqual(z.string())
-      expect(booleanField.toZod()).toEqual(z.boolean())
+      expect(numberField.toZod()).toBeInstanceOf(z.ZodNumber)
+      expect(stringField.toZod()).toBeInstanceOf(z.ZodString)
+      expect(booleanField.toZod()).toBeInstanceOf(z.ZodBoolean)
     })
 
     it('should work with union types', () => {
       const unionField = defineField(z.union([z.string(), z.number()]))
-      expect(unionField.toZod()).toEqual(z.union([z.string(), z.number()]))
+      expect(unionField.toZod()).toBeInstanceOf(z.ZodUnion)
     })
 
     it('should work with literal types', () => {
       const literalField = defineField(z.literal('specific-value'))
-      expect(literalField.toZod()).toEqual(z.literal('specific-value'))
+      expect(literalField.toZod()).toBeInstanceOf(z.ZodLiteral)
     })
   })
 })

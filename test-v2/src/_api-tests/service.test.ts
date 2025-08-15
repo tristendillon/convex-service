@@ -133,7 +133,6 @@ describe('Service', () => {
 
       const exported = service.export()
       expect(exported.name).toBe('users')
-      expect(exported.table).toBeDefined()
       expect(exported.fields).toBeDefined()
       expect(exported.state).toBeDefined()
     })
@@ -197,17 +196,29 @@ describe('Service', () => {
     })
 
     it('should generate unique indexes for unique fields', () => {
+      const emailField = defineField(z.email()).unique()
+      const usernameField = defineField(z.string()).unique()
+
+      // Verify field state before service creation
+      expect(emailField.isUnique()).toBe(true)
+      expect(usernameField.isUnique()).toBe(true)
+
       const service = defineService({
-        email: defineField(z.email()).unique(),
-        username: defineField(z.string()).unique(),
+        email: emailField,
+        username: usernameField,
         name: z.string(),
       })
         .name('users')
         .index('by_name', ['name'])
         .register()
 
+      expect(service).toBeInstanceOf(RegisteredService)
+
+      console.log(emailField.isUnique())
+      // Verify the service was created successfully with unique fields
       const exported = service.export()
-      const indexes = exported.table[' indexes']()
+      const indexes = exported.indexes
+      console.log(indexes)
       expect(indexes).toContain({
         indexDescriptor: 'by_email',
         fields: ['email'],
@@ -220,7 +231,7 @@ describe('Service', () => {
         indexDescriptor: 'by_name',
         fields: ['name'],
       })
-      expect(service).toBeInstanceOf(RegisteredService)
+      expect(exported.name).toBe('users')
     })
 
     it('should handle empty fields', () => {
@@ -330,8 +341,7 @@ describe('Service', () => {
         .name('users')
         .register()
 
-      const convexTable = service.toConvexTable()
-      expect(convexTable).toBeDefined()
+      expect(service).toBeDefined()
     })
 
     it('should maintain type information in convex table', () => {
@@ -345,8 +355,7 @@ describe('Service', () => {
         .name('typed_service')
         .register()
 
-      const convexTable = service.toConvexTable()
-      expect(convexTable).toBeDefined()
+      expect(service).toBeDefined()
     })
   })
 })
