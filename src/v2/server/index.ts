@@ -3,6 +3,15 @@ export { defineField, ServiceField } from './field'
 export { defineServiceSchema, ServiceSchema } from './schema'
 export { createRlsRules, RlsRules } from './rls'
 
+// Export mutation system
+export {
+  createServiceMutation,
+  defineServiceMutation,
+  ServiceDatabaseWriterImpl,
+} from './mutation'
+
 export * from './zod'
 export * from './hooks'
 export type * from './types'
+export type * from './mutation/types'
+export type * from './mutation/service-types'

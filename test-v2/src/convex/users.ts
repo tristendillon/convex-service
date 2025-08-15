@@ -4,13 +4,17 @@ import {
   createFieldHooks,
   createRlsRules,
   createServiceHooks,
+  createServiceMutation,
+  defineServiceMutation,
 } from '@lunarhue/convex-service/v2'
 import { defaultFields, emailField, profileIdField } from './fields'
 import { z } from 'zod/v4'
 import { DataModel } from './_generated/dataModel'
-import { mutation } from './_generated/server'
+// import { mutation } from './_generated/server'
 
 import { defineTable } from 'convex/server'
+import schema, { serviceSchema } from './schema'
+import { mutation } from './_generated/server'
 
 const fieldHooks = createFieldHooks<DataModel, 'users'>()
 const rls = createRlsRules<DataModel, 'users'>()
@@ -57,6 +61,17 @@ export const userService = defineService({
     serviceHooks: serviceHooks,
     rls: rls,
   })
+
+const cmutation = defineServiceMutation<DataModel>(serviceSchema)
+
+export const custom = cmutation({
+  args: {},
+  handler: async (ctx) => {
+    const inserted = await ctx.db.insert('users').one({})
+
+    return inserted
+  },
+})
 
 export const test = mutation({
   args: {},

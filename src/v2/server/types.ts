@@ -27,6 +27,10 @@ export type ServiceOperation<
   ctx: ServiceOperationCtx<GenericDataModel, Ctx>
 }
 
+export type OmitSystemFields<T> = T extends Record<string, any>
+  ? Omit<T, '_id' | '_creationTime'>
+  : T
+
 type ServiceOperationCtx<
   DataModel extends GenericDataModel = GenericDataModel,
   Ctx extends GenericQueryCtx<DataModel> = GenericQueryCtx<DataModel>
