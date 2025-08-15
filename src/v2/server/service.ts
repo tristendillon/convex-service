@@ -20,6 +20,17 @@ import {
 } from './field'
 import { zodToConvex } from './zod'
 import type { GenericFieldHooks, GenericServiceHooks } from './hooks'
+import type { GenericRlsRules, RlsRules } from './rls'
+
+type Join<T extends string[], Sep extends string> = T extends []
+  ? ''
+  : T extends [infer F extends string]
+  ? F
+  : T extends [infer F extends string, ...infer R extends string[]]
+  ? `${F}${Sep}${Join<R, Sep>}`
+  : string
+
+export type IndexNameByFields<T extends string[]> = `by_${Join<T, '_'>}`
 
 /**
  * @internal
@@ -63,13 +74,13 @@ type ServiceValidators<
 }
 
 type CompositeUnique<Fields extends GenericFields> = {
-  fields: FieldPaths<Fields>
+  fields: FieldPaths<Fields>[]
   onConflict: OnConflictPolicy
 }
 
 type ServiceState<Fields extends GenericFields> = {
   validators: ServiceValidators<Fields, ServiceState<Fields>>
-  compositeUniques: CompositeUnique<Fields>[]
+  compositeUniques: Record<string, CompositeUnique<Fields>>
 }
 
 type OnConflictPolicy = 'replace' | 'fail'
@@ -80,10 +91,18 @@ type AnyServiceFields = Record<string, ServiceField<any, any>>
 
 export type GenericRegisteredService = RegisteredService<any, any, any>
 
+type RegisteredServiceOptions = {
+  serviceHooks?: GenericServiceHooks
+  fieldHooks?: GenericFieldHooks
+  rls?: GenericRlsRules
+}
+
 export class RegisteredService<
   Fields extends GenericFields,
   Validator extends GenericValidator,
-  Indexes extends IndexStrategies = IndexStrategies
+  Indexes extends GenericTableIndexes = {},
+  SearchIndexes extends GenericTableSearchIndexes = {},
+  VectorIndexes extends GenericTableVectorIndexes = {}
 > {
   private _table: TableDefinition
   private _state: ServiceState<Fields> = {} as ServiceState<Fields>
@@ -95,15 +114,13 @@ export class RegisteredService<
   private _fields: Fields = {} as Fields
   private _serviceHooks: GenericServiceHooks | undefined
   private _fieldHooks: GenericFieldHooks | undefined
+  private _rlsRules: GenericRlsRules | undefined
   private _name: string = ''
   constructor(
     state: ServiceState<Fields>,
     fields: Fields,
     name: string,
-    options: {
-      serviceHooks?: GenericServiceHooks
-      fieldHooks?: GenericFieldHooks
-    } = {}
+    options: RegisteredServiceOptions = {}
   ) {
     this._name = name
     this._table = defineTable(state.validators.validator)
@@ -111,6 +128,7 @@ export class RegisteredService<
     this._state = state
     this._serviceHooks = options.serviceHooks
     this._fieldHooks = options.fieldHooks
+    this._rlsRules = options.rls
   }
 
   public export() {
@@ -121,20 +139,21 @@ export class RegisteredService<
       state: this._state,
       serviceHooks: this._serviceHooks,
       fieldHooks: this._fieldHooks,
+      rlsRules: this._rlsRules,
     }
   }
 
   public toConvexTable(): TableDefinition<
     Validator,
-    Indexes['indexes'],
-    Indexes['searchIndexes'],
-    Indexes['vectorIndexes']
+    Indexes,
+    SearchIndexes,
+    VectorIndexes
   > {
     return this._table as TableDefinition<
       Validator,
-      Indexes['indexes'],
-      Indexes['searchIndexes'],
-      Indexes['vectorIndexes']
+      Indexes,
+      SearchIndexes,
+      VectorIndexes
     >
   }
 }
@@ -143,7 +162,9 @@ export type GenericService = Service<any, any>
 
 export class Service<
   Fields extends GenericFields,
-  Indexes extends IndexStrategies = IndexStrategies
+  Indexes extends GenericTableIndexes = {},
+  SearchIndexes extends GenericTableSearchIndexes = {},
+  VectorIndexes extends GenericTableVectorIndexes = {}
 > {
   private _state: ServiceState<Fields> = {
     validators: {
@@ -151,8 +172,8 @@ export class Service<
       withoutDefaults: {},
       withDefaults: {},
     },
-    compositeUniques: [],
-  } as unknown as ServiceState<Fields>
+    compositeUniques: {},
+  } as ServiceState<Fields>
   private _indexStrategies = {
     indexes: [] as Index<Fields>[],
     searchIndexes: [] as SearchIndex<Fields>[],
@@ -163,29 +184,55 @@ export class Service<
   private _name: string = ''
 
   constructor(fields: Fields) {
+    console.log('Service constructor - Original fields:', fields)
+
     this._fields = Object.entries(fields).reduce((acc, [key, value]) => {
-      // if (value instanceof RegisteredServiceField) {
-      //   acc[key] = value
-      // } else
       if (value instanceof ServiceField) {
-        acc[key] = value.register()
+        acc[key] = value
       } else {
-        acc[key] = defineField(value).register()
+        acc[key] = defineField(value)
       }
       return acc
     }, {} as AnyServiceFields) as Fields
 
-    this._zodSchema = createZodSchemaFromFields(this._fields)
+    console.log('Service constructor - Processed fields:', this._fields)
 
+    this._zodSchema = createZodSchemaFromFields(this._fields)
     this._state.validators.validator = zodToConvex(
       this._zodSchema
     ) as unknown as ServiceFieldsToConvex<Fields>
   }
 
-  public compositeUnique(
-    fields: FieldPaths<Fields>,
+  private cleanIndexName(name: string): string {
+    let cleaned = name.replace(/[^a-zA-Z0-9_]/g, '_')
+    if (cleaned.length > 64) cleaned = cleaned.slice(0, 64)
+    return cleaned
+  }
+
+  public compositeUnique<
+    FirstFieldPath extends FieldPaths<Fields>,
+    RestFieldPaths extends FieldPaths<Fields>[]
+  >(
+    fields: [FirstFieldPath, ...RestFieldPaths],
     onConflict: OnConflictPolicy
-  ): this {
+  ): Service<
+    Fields,
+    Expand<
+      Indexes &
+        Record<
+          IndexNameByFields<[FirstFieldPath, ...RestFieldPaths]>,
+          [FirstFieldPath, ...RestFieldPaths, IndexTiebreakerField]
+        >
+    >,
+    SearchIndexes,
+    VectorIndexes
+  > {
+    const indexName = this.cleanIndexName(`by_${fields.join('_')}`)
+    this._state.compositeUniques[indexName] = {
+      fields,
+      onConflict,
+    }
+    this.index(indexName, fields)
     return this
   }
 
@@ -203,16 +250,17 @@ export class Service<
     fields: [FirstFieldPath, ...RestFieldPaths]
   ): Service<
     Fields,
-    Indexes & {
-      indexes: Expand<
-        Indexes['indexes'] &
-          Record<
-            IndexName,
-            [FirstFieldPath, ...RestFieldPaths, IndexTiebreakerField]
-          >
-      >
-    }
+    Expand<
+      Indexes &
+        Record<
+          IndexName,
+          [FirstFieldPath, ...RestFieldPaths, IndexTiebreakerField]
+        >
+    >,
+    SearchIndexes,
+    VectorIndexes
   > {
+    const indexName = this.cleanIndexName(`by_${fields.join('_')}`)
     this._indexStrategies.indexes.push({
       indexDescriptor: name,
       fields: fields,
@@ -229,18 +277,18 @@ export class Service<
     indexConfig: Expand<SearchIndexConfig<SearchField, FilterFields>>
   ): Service<
     Fields,
-    Indexes & {
-      searchIndexes: Expand<
-        Indexes['searchIndexes'] &
-          Record<
-            IndexName,
-            {
-              searchField: SearchField
-              filterFields: FilterFields
-            }
-          >
-      >
-    }
+    Indexes,
+    Expand<
+      SearchIndexes &
+        Record<
+          IndexName,
+          {
+            searchField: SearchField
+            filterFields: FilterFields
+          }
+        >
+    >,
+    VectorIndexes
   > {
     this._indexStrategies.searchIndexes.push({
       indexDescriptor: name,
@@ -259,19 +307,19 @@ export class Service<
     indexConfig: Expand<VectorIndexConfig<VectorField, FilterFields>>
   ): Service<
     Fields,
-    Indexes & {
-      vectorIndexes: Expand<
-        Indexes['vectorIndexes'] &
-          Record<
-            IndexName,
-            {
-              vectorField: VectorField
-              dimensions: number
-              filterFields: FilterFields
-            }
-          >
-      >
-    }
+    Indexes,
+    SearchIndexes,
+    Expand<
+      VectorIndexes &
+        Record<
+          IndexName,
+          {
+            vectorField: VectorField
+            dimensions: number
+            filterFields: FilterFields
+          }
+        >
+    >
   > {
     this._indexStrategies.vectorIndexes.push({
       indexDescriptor: name,
@@ -282,20 +330,53 @@ export class Service<
     return this
   }
 
-  public register(
-    options: {
-      serviceHooks?: GenericServiceHooks
-      fieldHooks?: GenericFieldHooks
-    } = {}
-  ) {
-    type Validator = typeof this._state.validators.validator
-    return new RegisteredService<Fields, Validator, Indexes>(
-      this._state,
-      this._fields,
-      this._name,
-      options
+  public register(options: RegisteredServiceOptions = {}) {
+    console.log('=== REGISTER METHOD DEBUG ===')
+    console.log('Current _fields:', this._fields)
+    console.log(
+      'Current _indexStrategies.indexes:',
+      this._indexStrategies.indexes
     )
+
+    for (const [key, value] of Object.entries(this._fields)) {
+      console.log(`\nChecking field "${key}":`)
+      console.log('  value:', value)
+      console.log('  instanceof ServiceField:', value instanceof ServiceField)
+      console.log('  constructor name:', value?.constructor?.name)
+
+      if (value instanceof ServiceField) {
+        console.log('  isUnique():', value.isUnique())
+        if (value.isUnique()) {
+          console.log(`  🎯 Creating index by_${key}`)
+          this.index(`by_${key}`, [key as FieldPaths<Fields>])
+        }
+      }
+    }
+
+    console.log(
+      'Final indexes after processing:',
+      this._indexStrategies.indexes
+    )
+
+    const registeredService = new RegisteredService<
+      Fields,
+      ServiceFieldsToConvex<Fields>,
+      Expand<Indexes & GetUniqueFieldIndexes<Fields>>,
+      SearchIndexes,
+      VectorIndexes
+    >(this._state, this._fields, this._name, options)
+
+    console.log('RegisteredService created:', registeredService.export())
+    return registeredService
   }
+}
+
+type GetUniqueFieldIndexes<Fields extends GenericFields> = {
+  [K in keyof Fields as Fields[K] extends ServiceField<any, any>
+    ? Fields[K]['isUnique'] extends () => true
+      ? `by_${K & string}`
+      : never
+    : never]: [K & string, IndexTiebreakerField]
 }
 
 export const defineService = <

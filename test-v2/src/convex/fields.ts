@@ -2,18 +2,24 @@ import { defineField } from '@lunarhue/convex-service/v2/server'
 import { zid } from '@lunarhue/convex-service/v2/server/zod'
 import { z } from 'zod/v4'
 
-export const updatedAtField = defineField(z.number().default(Date.now)).hooks(
+export const emailField = defineField(z.email()).unique()
+export const profileIdField = defineField(zid('profile'))
+
+export const updatedAtField = defineField(z.number().default(() => Date.now()))
+
+export const updatedByField = defineField(zid('users').optional()).hooks(
   (hooks) => {
-    hooks.before(async ({ value, operation }) => {
-      if (operation === 'insert' || operation === 'update') {
-        return Date.now()
+    hooks.before(async ({ ctx }) => {
+      const identity = await ctx.auth.getUserIdentity()
+      const userId = identity?.subject
+      if (userId) {
+        const user = ctx.db.normalizeId('users', userId)
+        return user ?? undefined
       }
-      return value
+      return undefined
     })
   }
 )
-
-export const updatedByField = defineField(zid('users').optional())
 
 export const defaultFields = {
   updatedBy: updatedByField,

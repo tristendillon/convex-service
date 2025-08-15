@@ -2,16 +2,19 @@ import {
   defineField,
   defineService,
   createFieldHooks,
-  createServiceHooks,
+  createRlsRules,
 } from '@lunarhue/convex-service/v2'
-import { zid } from '@lunarhue/convex-service/v2/server/zod'
-import { defaultFields } from './fields'
+import { defaultFields, emailField, profileIdField } from './fields'
 import { z } from 'zod/v4'
 import { DataModel } from './_generated/dataModel'
 import { mutation } from './_generated/server'
 
 const fieldHooks = createFieldHooks<DataModel, 'users'>()
-const serviceHooks = createServiceHooks<DataModel, 'users'>()
+const rls = createRlsRules<DataModel, 'users'>()
+
+rls.rule('insert', async ({ doc, ctx }) => {
+  return true
+})
 
 fieldHooks.field('fullName').before(async ({ value, operation }) => {
   if (operation === 'insert' || operation === 'update') {
@@ -20,39 +23,20 @@ fieldHooks.field('fullName').before(async ({ value, operation }) => {
   return value.fullName
 })
 
-serviceHooks.before(async ({ operation, value }) => {
-  let rt = value
-  if (operation === 'insert' || operation === 'update') {
-    rt = {
-      ...value,
-      fullName: `${value.firstName} ${value.lastName}`,
-    }
-  }
-  return rt
-})
-
-serviceHooks.after(async ({ operation, value }) => {
-  if (operation === 'insert' || operation === 'update') {
-    console.log('service after', value)
-  }
-})
-
-const emailField = defineField(z.email())
-const profileIdField = defineField(zid('profile'))
-
 export const userService = defineService({
-  email: emailField,
-  firstName: defineField(z.string()),
-  lastName: defineField(z.string()),
-  fullName: defineField(z.string().optional()),
+  email: emailField.unique(),
+  uuid: z.uuid().default(() => crypto.randomUUID()),
+  firstName: z.string(),
+  lastName: z.string(),
+  fullName: z.string().optional(),
   profileId: profileIdField,
   ...defaultFields,
 })
   .name('users')
-  .index('by_email', ['email'])
+  .compositeUnique(['email', 'uuid'], 'fail')
   .register({
-    serviceHooks: serviceHooks,
     fieldHooks: fieldHooks,
+    rls: rls,
   })
 
 export const test = mutation({

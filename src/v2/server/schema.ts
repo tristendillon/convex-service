@@ -1,6 +1,6 @@
 import type { GenericRegisteredService } from './service'
 
-class ServiceSchema {
+export class ServiceSchema {
   private _services: Record<string, GenericRegisteredService> = {}
 
   constructor(services: Record<string, GenericRegisteredService>) {
@@ -22,6 +22,12 @@ class ServiceSchema {
       throw new Error(`Service ${name} not found`)
     }
     return service
+  }
+
+  static getAllServices(
+    serviceSchema: ServiceSchema
+  ): Record<string, GenericRegisteredService> {
+    return serviceSchema._services
   }
 }
 

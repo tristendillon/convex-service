@@ -36,15 +36,13 @@ export function createZodSchemaFromFields<T extends GenericFields>(
 export type Field = ServiceField | z.ZodType
 export type GenericFields = Record<string, Field>
 
-type ServiceFieldDefault<T extends z.ZodType> = z.infer<T> | (() => z.infer<T>)
-
 type ServiceFieldHooks<ZodValidator extends z.ZodType = z.ZodType> = {
   before?: (
     operation: ServiceOperation<z.infer<ZodValidator>>
   ) => Promise<z.infer<ZodValidator>> | z.infer<ZodValidator>
   after?: (
     operation: ServiceOperation<z.infer<ZodValidator>>
-  ) => Promise<z.infer<ZodValidator>> | z.infer<ZodValidator>
+  ) => Promise<void> | void
 }
 
 type ServiceFieldHookSetters<ZodValidator extends z.ZodType = z.ZodType> = {
@@ -56,13 +54,12 @@ type ServiceFieldHookSetters<ZodValidator extends z.ZodType = z.ZodType> = {
   after: (
     hook: (
       operation: ServiceOperation<z.infer<ZodValidator>>
-    ) => Promise<z.infer<ZodValidator>> | z.infer<ZodValidator>
+    ) => Promise<void> | void
   ) => void
 }
 
 type ServiceFieldState<ZodValidator extends z.ZodType = z.ZodType> = {
   unique: boolean
-  default: ServiceFieldDefault<ZodValidator> | undefined
   hooks: ServiceFieldHooks<ZodValidator>
 }
 
@@ -73,7 +70,6 @@ export class ServiceField<
   private _zodValidator: ZodValidator
   private _state: State = {
     unique: false,
-    default: undefined,
     hooks: {},
   } as State
   constructor(zodValidator: ZodValidator) {
@@ -85,12 +81,9 @@ export class ServiceField<
     return this
   }
 
-  public default(args: ServiceFieldDefault<ZodValidator>): this {
-    this._state.default = args
-    return this
-  }
-
-  public hooks(callback: (hooks: ServiceFieldHookSetters<ZodValidator>) => void) {
+  public hooks(
+    callback: (hooks: ServiceFieldHookSetters<ZodValidator>) => void
+  ) {
     const hookHandlers: ServiceFieldHookSetters<ZodValidator> = {
       before: (hook) => {
         this._state.hooks.before = hook
@@ -103,12 +96,12 @@ export class ServiceField<
     return this
   }
 
-  public toZod(): ZodValidator {
-    return this._zodValidator
+  public isUnique(): boolean {
+    return this._state.unique
   }
 
-  public register(): this {
-    return this
+  public toZod(): ZodValidator {
+    return this._zodValidator
   }
 }
 

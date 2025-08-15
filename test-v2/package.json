@@ -13,8 +13,8 @@
     "test:coverage": "rm -rf node_modules/.vite && vitest run --coverage --coverage.reporter=text"
   },
   "dependencies": {
-    "convex": "^1.23.0",
-    "@lunarhue/convex-service": "file:../"
+    "@lunarhue/convex-service": "file:../",
+    "convex": "^1.23.0"
   },
   "devDependencies": {
     "@edge-runtime/vm": "^5.0.0",
