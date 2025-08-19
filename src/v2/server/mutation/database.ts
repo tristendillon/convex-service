@@ -4,7 +4,11 @@ import {
   TableNamesInDataModel,
 } from 'convex/server'
 import { GenericId } from 'convex/values'
-import { ServiceDatabaseWriter } from './types'
+import {
+  ServiceDatabaseWriter,
+  type ExtractDocumentType,
+  type ExtractDocumentTypeWithoutDefaults,
+} from './types'
 import { type GenericServiceSchema } from '../schema'
 import {
   InsertBuilderImpl,
@@ -55,7 +59,13 @@ export class ServiceDatabaseWriterImpl<
 
   insert<TableName extends TableNamesInDataModel<DataModel>>(
     tableName: TableName
-  ) {
+  ): InsertBuilderImpl<
+    DataModel,
+    TableName,
+    Schema,
+    ExtractDocumentTypeWithoutDefaults<Schema, TableName>,
+    ExtractDocumentType<Schema, TableName>
+  > {
     return new InsertBuilderImpl(tableName, this.ctx)
   }
 
@@ -70,9 +80,9 @@ export class ServiceDatabaseWriterImpl<
     idOrIds: GenericId<TableName> | GenericId<TableName>[]
   ) {
     if (Array.isArray(idOrIds)) {
-      return new ReplaceManyBuilderImpl(idOrIds, this.ctx)
+      return new ReplaceManyBuilderImpl(idOrIds, this.ctx, this.schema)
     } else {
-      return new ReplaceOneBuilderImpl(idOrIds, this.ctx)
+      return new ReplaceOneBuilderImpl(idOrIds, this.ctx, this.schema)
     }
   }
 
@@ -87,9 +97,9 @@ export class ServiceDatabaseWriterImpl<
     idOrIds: GenericId<TableName> | GenericId<TableName>[]
   ) {
     if (Array.isArray(idOrIds)) {
-      return new PatchManyBuilderImpl(idOrIds, this.ctx)
+      return new PatchManyBuilderImpl(idOrIds, this.ctx, this.schema)
     } else {
-      return new PatchOneBuilderImpl(idOrIds, this.ctx)
+      return new PatchOneBuilderImpl(idOrIds, this.ctx, this.schema)
     }
   }
 

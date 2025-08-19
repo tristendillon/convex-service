@@ -59,17 +59,13 @@ export type ServiceInsertDocument<
   DataModel extends GenericDataModel,
   Schema extends GenericServiceSchema,
   TableName extends TableNamesInDataModel<DataModel>
-> = WithOptionalDefaults<
-  ServiceFields<ServiceFromSchema<Schema, TableName & string>>
->
+> = WithOptionalDefaults<ServiceFields<ServiceFromSchema<Schema, TableName>>>
 
 export type ServiceInsertDocumentWithoutValidation<
   DataModel extends GenericDataModel,
   Schema extends GenericServiceSchema,
   TableName extends TableNamesInDataModel<DataModel>
-> = WithRequiredDefaults<
-  ServiceFields<ServiceFromSchema<Schema, TableName & string>>
->
+> = WithRequiredDefaults<ServiceFields<ServiceFromSchema<Schema, TableName>>>
 
 // Enhanced builder interfaces with better typing
 export interface TypedInsertBuilder<

@@ -13,6 +13,7 @@ import {
   type GetServiceFromSchemaAndTableName,
   type DocumentWithRequiredDefaults,
   type GetZodSchemaFromService,
+  type ExtractDocumentTypeWithoutDefaults,
 } from '../types'
 import { type GenericServiceSchema } from '../../schema'
 
@@ -24,7 +25,8 @@ export class ReplaceOneBuilderImpl<
 {
   constructor(
     private id: GenericId<TableName>,
-    private ctx: GenericMutationCtx<DataModel>
+    private ctx: GenericMutationCtx<DataModel>,
+    private schema: Schema
   ) {}
 
   async one(
@@ -39,33 +41,32 @@ export class ReplaceOneBuilderImpl<
     return this.id
   }
 
-  withoutValidation(): ReplaceOneBuilderWithoutValidation<
-    DataModel,
-    TableName,
-    Schema
-  > {
-    return new ReplaceOneBuilderWithoutValidationImpl(this.id, this.ctx)
+  withoutValidation() {
+    return new ReplaceOneBuilderWithoutValidationImpl(
+      this.id,
+      this.ctx,
+      this.schema
+    )
   }
 }
 
 export class ReplaceOneBuilderWithoutValidationImpl<
   DataModel extends GenericDataModel,
   TableName extends TableNamesInDataModel<DataModel>,
-  Schema extends GenericServiceSchema = GenericServiceSchema
+  Schema extends GenericServiceSchema = GenericServiceSchema,
+  TInput extends ExtractDocumentTypeWithoutDefaults<
+    Schema,
+    TableName
+  > = ExtractDocumentTypeWithoutDefaults<Schema, TableName>
 > implements ReplaceOneBuilderWithoutValidation<DataModel, TableName, Schema>
 {
   constructor(
     private id: GenericId<TableName>,
-    private ctx: GenericMutationCtx<DataModel>
+    private ctx: GenericMutationCtx<DataModel>,
+    private schema: Schema
   ) {}
 
-  async one(
-    document: DocumentWithRequiredDefaults<
-      GetZodSchemaFromService<
-        GetServiceFromSchemaAndTableName<Schema, TableName>
-      >
-    >
-  ): Promise<GenericId<TableName>> {
+  async one(document: TInput): Promise<GenericId<TableName>> {
     // Skip validation, replace directly
     await this.ctx.db.replace(this.id, document as any)
     return this.id
@@ -75,21 +76,20 @@ export class ReplaceOneBuilderWithoutValidationImpl<
 export class ReplaceManyBuilderImpl<
   DataModel extends GenericDataModel,
   TableName extends TableNamesInDataModel<DataModel>,
-  Schema extends GenericServiceSchema = GenericServiceSchema
+  Schema extends GenericServiceSchema = GenericServiceSchema,
+  TInput extends ExtractDocumentTypeWithoutDefaults<
+    Schema,
+    TableName
+  > = ExtractDocumentTypeWithoutDefaults<Schema, TableName>
 > implements ReplaceManyBuilder<DataModel, TableName, Schema>
 {
   constructor(
     private ids: GenericId<TableName>[],
-    private ctx: GenericMutationCtx<DataModel>
+    private ctx: GenericMutationCtx<DataModel>,
+    private schema: Schema
   ) {}
 
-  async many(
-    documents: DocumentWithOptionalDefaults<
-      GetZodSchemaFromService<
-        GetServiceFromSchemaAndTableName<Schema, TableName>
-      >
-    >[]
-  ): Promise<GenericId<TableName>[]> {
+  async many(documents: TInput[]): Promise<GenericId<TableName>[]> {
     // TODO: Apply validation and field hooks to each document
     if (documents.length !== this.ids.length) {
       throw new Error(
@@ -105,33 +105,32 @@ export class ReplaceManyBuilderImpl<
     return this.ids
   }
 
-  withoutValidation(): ReplaceManyBuilderWithoutValidation<
-    DataModel,
-    TableName,
-    Schema
-  > {
-    return new ReplaceManyBuilderWithoutValidationImpl(this.ids, this.ctx)
+  withoutValidation() {
+    return new ReplaceManyBuilderWithoutValidationImpl(
+      this.ids,
+      this.ctx,
+      this.schema
+    )
   }
 }
 
 export class ReplaceManyBuilderWithoutValidationImpl<
   DataModel extends GenericDataModel,
   TableName extends TableNamesInDataModel<DataModel>,
-  Schema extends GenericServiceSchema = GenericServiceSchema
+  Schema extends GenericServiceSchema = GenericServiceSchema,
+  TInput extends ExtractDocumentTypeWithoutDefaults<
+    Schema,
+    TableName
+  > = ExtractDocumentTypeWithoutDefaults<Schema, TableName>
 > implements ReplaceManyBuilderWithoutValidation<DataModel, TableName, Schema>
 {
   constructor(
     private ids: GenericId<TableName>[],
-    private ctx: GenericMutationCtx<DataModel>
+    private ctx: GenericMutationCtx<DataModel>,
+    private schema: Schema
   ) {}
 
-  async many(
-    documents: DocumentWithRequiredDefaults<
-      GetZodSchemaFromService<
-        GetServiceFromSchemaAndTableName<Schema, TableName>
-      >
-    >[]
-  ): Promise<GenericId<TableName>[]> {
+  async many(documents: TInput[]): Promise<GenericId<TableName>[]> {
     // Skip validation, replace directly
     if (documents.length !== this.ids.length) {
       throw new Error(

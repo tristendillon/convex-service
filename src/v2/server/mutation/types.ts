@@ -20,180 +20,157 @@ export type GetServiceFromSchemaAndTableName<
 export interface InsertBuilder<
   DataModel extends GenericDataModel,
   TableName extends TableNamesInDataModel<DataModel>,
-  Schema extends GenericServiceSchema = GenericServiceSchema
+  Schema extends GenericServiceSchema = GenericServiceSchema,
+  TInput extends ExtractDocumentTypeWithoutDefaults<
+    Schema,
+    TableName
+  > = ExtractDocumentTypeWithoutDefaults<Schema, TableName>,
+  TWithoutValidation extends ExtractDocumentType<
+    Schema,
+    TableName
+  > = ExtractDocumentType<Schema, TableName>
 > {
-  one(
-    document: DocumentWithOptionalDefaults<
-      GetZodSchemaFromService<
-        GetServiceFromSchemaAndTableName<Schema, TableName>
-      >
-    >
-  ): Promise<GenericId<TableName>>
-  many(
-    documents: DocumentWithOptionalDefaults<
-      GetZodSchemaFromService<
-        GetServiceFromSchemaAndTableName<Schema, TableName>
-      >
-    >[]
-  ): Promise<GenericId<TableName>[]>
+  one(document: TInput): Promise<GenericId<TableName>>
+  many(documents: TInput[]): Promise<GenericId<TableName>[]>
   withoutValidation(): InsertBuilderWithoutValidation<
     DataModel,
     TableName,
-    GenericServiceSchema
+    Schema,
+    TWithoutValidation
   >
 }
 
 export interface InsertBuilderWithoutValidation<
   DataModel extends GenericDataModel,
   TableName extends TableNamesInDataModel<DataModel>,
-  Schema extends GenericServiceSchema = GenericServiceSchema
+  Schema extends GenericServiceSchema = GenericServiceSchema,
+  TInput extends ExtractDocumentType<Schema, TableName> = ExtractDocumentType<
+    Schema,
+    TableName
+  >
 > {
-  one(
-    document: DocumentWithRequiredDefaults<
-      GetZodSchemaFromService<
-        GetServiceFromSchemaAndTableName<Schema, TableName>
-      >
-    >
-  ): Promise<GenericId<TableName>>
-  many(
-    documents: DocumentWithRequiredDefaults<
-      GetZodSchemaFromService<
-        GetServiceFromSchemaAndTableName<Schema, TableName>
-      >
-    >[]
-  ): Promise<GenericId<TableName>[]>
+  one(document: TInput): Promise<GenericId<TableName>>
+  many(documents: TInput[]): Promise<GenericId<TableName>[]>
 }
 
 export interface ReplaceOneBuilder<
   DataModel extends GenericDataModel,
   TableName extends TableNamesInDataModel<DataModel>,
-  Schema extends GenericServiceSchema = GenericServiceSchema
+  Schema extends GenericServiceSchema = GenericServiceSchema,
+  TInput extends ExtractDocumentTypeWithoutDefaults<
+    Schema,
+    TableName
+  > = ExtractDocumentTypeWithoutDefaults<Schema, TableName>
 > {
-  one(
-    document: DocumentWithOptionalDefaults<
-      GetZodSchemaFromService<
-        GetServiceFromSchemaAndTableName<Schema, TableName>
-      >
-    >
-  ): Promise<GenericId<TableName>>
+  one(document: TInput): Promise<GenericId<TableName>>
   withoutValidation(): ReplaceOneBuilderWithoutValidation<
     DataModel,
     TableName,
-    GenericServiceSchema
+    Schema,
+    ExtractDocumentType<Schema, TableName>
   >
 }
 
 export interface ReplaceOneBuilderWithoutValidation<
   DataModel extends GenericDataModel,
   TableName extends TableNamesInDataModel<DataModel>,
-  Schema extends GenericServiceSchema = GenericServiceSchema
+  Schema extends GenericServiceSchema = GenericServiceSchema,
+  TInput extends ExtractDocumentType<Schema, TableName> = ExtractDocumentType<
+    Schema,
+    TableName
+  >
 > {
-  one(
-    document: DocumentWithRequiredDefaults<
-      GetZodSchemaFromService<
-        GetServiceFromSchemaAndTableName<Schema, TableName>
-      >
-    >
-  ): Promise<GenericId<TableName>>
+  one(document: TInput): Promise<GenericId<TableName>>
 }
 
 export interface ReplaceManyBuilder<
   DataModel extends GenericDataModel,
   TableName extends TableNamesInDataModel<DataModel>,
-  Schema extends GenericServiceSchema = GenericServiceSchema
+  Schema extends GenericServiceSchema = GenericServiceSchema,
+  TInput extends ExtractDocumentTypeWithoutDefaults<
+    Schema,
+    TableName
+  > = ExtractDocumentTypeWithoutDefaults<Schema, TableName>
 > {
-  many(
-    documents: DocumentWithOptionalDefaults<
-      GetZodSchemaFromService<
-        GetServiceFromSchemaAndTableName<Schema, TableName>
-      >
-    >[]
-  ): Promise<GenericId<TableName>[]>
+  many(documents: TInput[]): Promise<GenericId<TableName>[]>
   withoutValidation(): ReplaceManyBuilderWithoutValidation<
     DataModel,
     TableName,
-    GenericServiceSchema
+    Schema,
+    ExtractDocumentType<Schema, TableName>
   >
 }
 
 export interface ReplaceManyBuilderWithoutValidation<
   DataModel extends GenericDataModel,
   TableName extends TableNamesInDataModel<DataModel>,
-  Schema extends GenericServiceSchema = GenericServiceSchema
+  Schema extends GenericServiceSchema = GenericServiceSchema,
+  TInput extends ExtractDocumentType<Schema, TableName> = ExtractDocumentType<
+    Schema,
+    TableName
+  >
 > {
-  many(
-    documents: DocumentWithRequiredDefaults<
-      GetZodSchemaFromService<
-        GetServiceFromSchemaAndTableName<Schema, TableName>
-      >
-    >[]
-  ): Promise<GenericId<TableName>[]>
+  many(documents: TInput[]): Promise<GenericId<TableName>[]>
 }
 
 export interface PatchOneBuilder<
   DataModel extends GenericDataModel,
   TableName extends TableNamesInDataModel<DataModel>,
-  Schema extends GenericServiceSchema = GenericServiceSchema
+  Schema extends GenericServiceSchema = GenericServiceSchema,
+  TInput extends ExtractDocumentTypeWithoutDefaults<
+    Schema,
+    TableName
+  > = ExtractDocumentTypeWithoutDefaults<Schema, TableName>
 > {
-  one(
-    document: Partial<
-      GetZodSchemaFromService<
-        GetServiceFromSchemaAndTableName<Schema, TableName>
-      >
-    >
-  ): Promise<GenericId<TableName>>
+  one(document: Partial<TInput>): Promise<GenericId<TableName>>
   withoutValidation(): PatchOneBuilderWithoutValidation<
     DataModel,
     TableName,
-    GenericServiceSchema
+    Schema,
+    ExtractDocumentType<Schema, TableName>
   >
 }
 
 export interface PatchOneBuilderWithoutValidation<
   DataModel extends GenericDataModel,
   TableName extends TableNamesInDataModel<DataModel>,
-  Schema extends GenericServiceSchema = GenericServiceSchema
+  Schema extends GenericServiceSchema = GenericServiceSchema,
+  TInput extends ExtractDocumentType<Schema, TableName> = ExtractDocumentType<
+    Schema,
+    TableName
+  >
 > {
-  one(
-    document: Partial<
-      GetZodSchemaFromService<
-        GetServiceFromSchemaAndTableName<Schema, TableName>
-      >
-    >
-  ): Promise<GenericId<TableName>>
+  one(document: Partial<TInput>): Promise<GenericId<TableName>>
 }
 
 export interface PatchManyBuilder<
   DataModel extends GenericDataModel,
   TableName extends TableNamesInDataModel<DataModel>,
-  Schema extends GenericServiceSchema = GenericServiceSchema
+  Schema extends GenericServiceSchema = GenericServiceSchema,
+  TInput extends ExtractDocumentTypeWithoutDefaults<
+    Schema,
+    TableName
+  > = ExtractDocumentTypeWithoutDefaults<Schema, TableName>
 > {
-  many(
-    documents: Partial<
-      GetZodSchemaFromService<
-        GetServiceFromSchemaAndTableName<Schema, TableName>
-      >
-    >[]
-  ): Promise<GenericId<TableName>[]>
+  many(documents: Partial<TInput>[]): Promise<GenericId<TableName>[]>
   withoutValidation(): PatchManyBuilderWithoutValidation<
     DataModel,
     TableName,
-    GenericServiceSchema
+    Schema,
+    ExtractDocumentType<Schema, TableName>
   >
 }
 
 export interface PatchManyBuilderWithoutValidation<
   DataModel extends GenericDataModel,
   TableName extends TableNamesInDataModel<DataModel>,
-  Schema extends GenericServiceSchema = GenericServiceSchema
+  Schema extends GenericServiceSchema = GenericServiceSchema,
+  TInput extends ExtractDocumentType<Schema, TableName> = ExtractDocumentType<
+    Schema,
+    TableName
+  >
 > {
-  many(
-    documents: Partial<
-      GetZodSchemaFromService<
-        GetServiceFromSchemaAndTableName<Schema, TableName>
-      >
-    >[]
-  ): Promise<GenericId<TableName>[]>
+  many(documents: Partial<TInput>[]): Promise<GenericId<TableName>[]>
 }
 
 // Main database interface that overrides Convex methods
@@ -204,7 +181,13 @@ export interface ServiceDatabaseWriter<
   // Override insert - returns builder instead of Promise
   insert<TableName extends TableNamesInDataModel<DataModel>>(
     tableName: TableName
-  ): InsertBuilder<DataModel, TableName, Schema>
+  ): InsertBuilder<
+    DataModel,
+    TableName,
+    Schema,
+    ExtractDocumentTypeWithoutDefaults<Schema, TableName>,
+    ExtractDocumentType<Schema, TableName>
+  >
 
   // Override replace - returns builder based on ID type
   replace<TableName extends TableNamesInDataModel<DataModel>>(
@@ -234,20 +217,27 @@ export interface ServiceDatabaseWriter<
   ): Promise<GenericId<TableName>[]>
 }
 
-// Helper types for validation
-export type ServiceValidationContext<
-  DataModel extends GenericDataModel,
-  Schema extends GenericServiceSchema = GenericServiceSchema
-> = {
-  schema: Schema
-  dataModel: DataModel
-}
+// Type extraction utilities for better type inference
+export type ExtractDocumentType<
+  Schema extends GenericServiceSchema,
+  TableName extends string
+> = DocumentWithOptionalDefaults<
+  GetZodSchemaFromService<GetServiceFromSchemaAndTableName<Schema, TableName>>
+>
 
-// Document type helpers that handle ZodDefault fields
+export type ExtractDocumentTypeWithoutDefaults<
+  Schema extends GenericServiceSchema,
+  TableName extends string
+> = DocumentWithRequiredDefaults<
+  GetZodSchemaFromService<GetServiceFromSchemaAndTableName<Schema, TableName>>
+>
+
 export type DocumentWithOptionalDefaults<T> = T extends z.ZodObject<infer Shape>
   ? {
       [K in keyof Shape]: Shape[K] extends z.ZodDefault<infer Inner>
         ? z.infer<Inner> | undefined // Make ZodDefault fields optional
+        : Shape[K] extends z.ZodOptional<infer OptionalInner>
+        ? z.infer<OptionalInner> | undefined // Handle z.optional() fields
         : Shape[K] extends z.ZodType
         ? z.infer<Shape[K]>
         : never
@@ -258,6 +248,8 @@ export type DocumentWithRequiredDefaults<T> = T extends z.ZodObject<infer Shape>
   ? {
       [K in keyof Shape]: Shape[K] extends z.ZodDefault<infer Inner>
         ? z.infer<Inner> // ZodDefault fields are required
+        : Shape[K] extends z.ZodOptional<infer OptionalInner>
+        ? z.infer<OptionalInner> | undefined // Keep optional fields optional
         : Shape[K] extends z.ZodType
         ? z.infer<Shape[K]>
         : never

@@ -22,7 +22,8 @@ export class PatchOneBuilderImpl<
 {
   constructor(
     private id: GenericId<TableName>,
-    private ctx: GenericMutationCtx<DataModel>
+    private ctx: GenericMutationCtx<DataModel>,
+    private schema: Schema
   ) {}
 
   async one(
@@ -42,7 +43,11 @@ export class PatchOneBuilderImpl<
     TableName,
     Schema
   > {
-    return new PatchOneBuilderWithoutValidationImpl(this.id, this.ctx)
+    return new PatchOneBuilderWithoutValidationImpl(
+      this.id,
+      this.ctx,
+      this.schema
+    )
   }
 }
 
@@ -54,7 +59,8 @@ export class PatchOneBuilderWithoutValidationImpl<
 {
   constructor(
     private id: GenericId<TableName>,
-    private ctx: GenericMutationCtx<DataModel>
+    private ctx: GenericMutationCtx<DataModel>,
+    private schema: Schema
   ) {}
 
   async one(
@@ -78,7 +84,8 @@ export class PatchManyBuilderImpl<
 {
   constructor(
     private ids: GenericId<TableName>[],
-    private ctx: GenericMutationCtx<DataModel>
+    private ctx: GenericMutationCtx<DataModel>,
+    private schema: Schema
   ) {}
 
   async many(
@@ -108,7 +115,11 @@ export class PatchManyBuilderImpl<
     TableName,
     Schema
   > {
-    return new PatchManyBuilderWithoutValidationImpl(this.ids, this.ctx)
+    return new PatchManyBuilderWithoutValidationImpl(
+      this.ids,
+      this.ctx,
+      this.schema
+    )
   }
 }
 
@@ -120,7 +131,8 @@ export class PatchManyBuilderWithoutValidationImpl<
 {
   constructor(
     private ids: GenericId<TableName>[],
-    private ctx: GenericMutationCtx<DataModel>
+    private ctx: GenericMutationCtx<DataModel>,
+    private schema: Schema
   ) {}
 
   async many(
