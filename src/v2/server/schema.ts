@@ -1,38 +1,41 @@
 import type { GenericRegisteredService } from './service'
 
-export class ServiceSchema {
-  private _services: Record<string, GenericRegisteredService> = {}
+export type GenericServiceSchema = ServiceSchema<any>
 
-  constructor(services: Record<string, GenericRegisteredService>) {
+export class ServiceSchema<
+  Services extends Record<string, GenericRegisteredService>
+> {
+  private _services: Services = {} as Services
+
+  constructor(services: Services) {
     for (const [key, service] of Object.entries(services)) {
-      const exported = service.export()
-      if (key != exported.name) {
+      if (key != service.name) {
         throw new Error(
-          `Service name ${key} does not match exported name ${exported.name}\n` +
-            `  - Ensure that your service.name(...) matches the key in your service schema.`
+          `Service name ${key} does not match exported name ${service.name}`
         )
       }
-      this._services[key] = service
+      this._services[key as keyof Services] =
+        service as Services[keyof Services]
     }
   }
 
-  public getService(name: string) {
+  public getService(name: keyof Services) {
     const service = this._services[name]
     if (!service) {
-      throw new Error(`Service ${name} not found`)
+      throw new Error(`Service ${String(name)} not found`)
     }
     return service
   }
 
-  static getAllServices(
-    serviceSchema: ServiceSchema
-  ): Record<string, GenericRegisteredService> {
-    return serviceSchema._services
+  public get services(): Services {
+    return this._services
   }
 }
 
-export const defineServiceSchema = (
-  services: Record<string, GenericRegisteredService>
+export const defineServiceSchema = <
+  Services extends Record<string, GenericRegisteredService>
+>(
+  services: Services
 ) => {
-  return new ServiceSchema(services)
+  return new ServiceSchema(services) as ServiceSchema<Services>
 }

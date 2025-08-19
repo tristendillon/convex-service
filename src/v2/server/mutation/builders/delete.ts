@@ -4,12 +4,11 @@ import {
   TableNamesInDataModel,
 } from 'convex/server'
 import { GenericId } from 'convex/values'
-import { ServiceValidationContext } from '../types'
-import { ServiceSchema } from '../../schema'
+import { type GenericServiceSchema } from '../../schema'
 
 export class DeleteOperations<
   DataModel extends GenericDataModel,
-  Schema extends ServiceSchema = ServiceSchema
+  Schema extends GenericServiceSchema = GenericServiceSchema
 > {
   constructor(private ctx: GenericMutationCtx<DataModel>) {}
 

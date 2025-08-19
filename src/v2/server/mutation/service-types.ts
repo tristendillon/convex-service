@@ -1,15 +1,15 @@
 import { GenericDataModel, TableNamesInDataModel } from 'convex/server'
 import { GenericId } from 'convex/values'
-import { ServiceSchema } from '../schema'
+import { ServiceSchema, type GenericServiceSchema } from '../schema'
 import { GenericRegisteredService } from '../service'
 import { ServiceField } from '../field'
 import * as z from 'zod/v4'
 
 // Extract service information from schema
 export type ServiceFromSchema<
-  Schema extends ServiceSchema,
+  Schema extends GenericServiceSchema,
   TableName extends string
-> = Schema extends ServiceSchema ? GenericRegisteredService : never
+> = Schema extends GenericServiceSchema ? GenericRegisteredService : never
 
 // Extract field definitions from a service
 export type ServiceFields<Service extends GenericRegisteredService> =
@@ -57,7 +57,7 @@ export type WithRequiredDefaults<T extends Record<string, any>> = {
 // Enhanced document types for service operations
 export type ServiceInsertDocument<
   DataModel extends GenericDataModel,
-  Schema extends ServiceSchema,
+  Schema extends GenericServiceSchema,
   TableName extends TableNamesInDataModel<DataModel>
 > = WithOptionalDefaults<
   ServiceFields<ServiceFromSchema<Schema, TableName & string>>
@@ -65,7 +65,7 @@ export type ServiceInsertDocument<
 
 export type ServiceInsertDocumentWithoutValidation<
   DataModel extends GenericDataModel,
-  Schema extends ServiceSchema,
+  Schema extends GenericServiceSchema,
   TableName extends TableNamesInDataModel<DataModel>
 > = WithRequiredDefaults<
   ServiceFields<ServiceFromSchema<Schema, TableName & string>>
@@ -74,7 +74,7 @@ export type ServiceInsertDocumentWithoutValidation<
 // Enhanced builder interfaces with better typing
 export interface TypedInsertBuilder<
   DataModel extends GenericDataModel,
-  Schema extends ServiceSchema,
+  Schema extends GenericServiceSchema,
   TableName extends TableNamesInDataModel<DataModel>
 > {
   one(
@@ -94,7 +94,7 @@ export interface TypedInsertBuilder<
 
 export interface TypedInsertBuilderWithoutValidation<
   DataModel extends GenericDataModel,
-  Schema extends ServiceSchema,
+  Schema extends GenericServiceSchema,
   TableName extends TableNamesInDataModel<DataModel>
 > {
   one(
@@ -119,7 +119,7 @@ export type ValidationMode = 'withDefaults' | 'withoutDefaults'
 
 export type DocumentForValidation<
   DataModel extends GenericDataModel,
-  Schema extends ServiceSchema,
+  Schema extends GenericServiceSchema,
   TableName extends TableNamesInDataModel<DataModel>,
   Mode extends ValidationMode
 > = Mode extends 'withDefaults'
@@ -128,10 +128,10 @@ export type DocumentForValidation<
 
 // Helper type to determine if a table exists in a schema
 export type TableExistsInSchema<
-  Schema extends ServiceSchema,
+  Schema extends GenericServiceSchema,
   TableName extends string
 > = TableName extends keyof ReturnType<Schema['getService']> ? true : false
 
 // Extract all table names from a service schema
-export type TableNamesFromSchema<Schema extends ServiceSchema> =
-  Schema extends ServiceSchema ? string : never
+export type TableNamesFromSchema<Schema extends GenericServiceSchema> =
+  Schema extends GenericServiceSchema ? string : never

@@ -2,7 +2,6 @@ import {
   GenericDataModel,
   GenericMutationCtx,
   TableNamesInDataModel,
-  DocumentByName,
 } from 'convex/server'
 import { GenericId } from 'convex/values'
 import {
@@ -10,19 +9,17 @@ import {
   ReplaceOneBuilderWithoutValidation,
   ReplaceManyBuilder,
   ReplaceManyBuilderWithoutValidation,
-  ServiceValidationContext,
+  type DocumentWithOptionalDefaults,
+  type GetServiceFromSchemaAndTableName,
+  type DocumentWithRequiredDefaults,
+  type GetZodSchemaFromService,
 } from '../types'
-import { ServiceSchema } from '../../schema'
-import type {
-  WithOptionalDefaults,
-  WithRequiredDefaults,
-} from '../service-types'
-import type { OmitSystemFields } from '../../types'
+import { type GenericServiceSchema } from '../../schema'
 
 export class ReplaceOneBuilderImpl<
   DataModel extends GenericDataModel,
   TableName extends TableNamesInDataModel<DataModel>,
-  Schema extends ServiceSchema = ServiceSchema
+  Schema extends GenericServiceSchema = GenericServiceSchema
 > implements ReplaceOneBuilder<DataModel, TableName, Schema>
 {
   constructor(
@@ -31,8 +28,10 @@ export class ReplaceOneBuilderImpl<
   ) {}
 
   async one(
-    document: WithOptionalDefaults<
-      OmitSystemFields<DocumentByName<DataModel, TableName>>
+    document: DocumentWithOptionalDefaults<
+      GetZodSchemaFromService<
+        GetServiceFromSchemaAndTableName<Schema, TableName>
+      >
     >
   ): Promise<GenericId<TableName>> {
     // TODO: Apply validation and field hooks
@@ -52,7 +51,7 @@ export class ReplaceOneBuilderImpl<
 export class ReplaceOneBuilderWithoutValidationImpl<
   DataModel extends GenericDataModel,
   TableName extends TableNamesInDataModel<DataModel>,
-  Schema extends ServiceSchema = ServiceSchema
+  Schema extends GenericServiceSchema = GenericServiceSchema
 > implements ReplaceOneBuilderWithoutValidation<DataModel, TableName, Schema>
 {
   constructor(
@@ -61,8 +60,10 @@ export class ReplaceOneBuilderWithoutValidationImpl<
   ) {}
 
   async one(
-    document: WithRequiredDefaults<
-      OmitSystemFields<DocumentByName<DataModel, TableName>>
+    document: DocumentWithRequiredDefaults<
+      GetZodSchemaFromService<
+        GetServiceFromSchemaAndTableName<Schema, TableName>
+      >
     >
   ): Promise<GenericId<TableName>> {
     // Skip validation, replace directly
@@ -74,7 +75,7 @@ export class ReplaceOneBuilderWithoutValidationImpl<
 export class ReplaceManyBuilderImpl<
   DataModel extends GenericDataModel,
   TableName extends TableNamesInDataModel<DataModel>,
-  Schema extends ServiceSchema = ServiceSchema
+  Schema extends GenericServiceSchema = GenericServiceSchema
 > implements ReplaceManyBuilder<DataModel, TableName, Schema>
 {
   constructor(
@@ -83,8 +84,10 @@ export class ReplaceManyBuilderImpl<
   ) {}
 
   async many(
-    documents: WithOptionalDefaults<
-      OmitSystemFields<DocumentByName<DataModel, TableName>>
+    documents: DocumentWithOptionalDefaults<
+      GetZodSchemaFromService<
+        GetServiceFromSchemaAndTableName<Schema, TableName>
+      >
     >[]
   ): Promise<GenericId<TableName>[]> {
     // TODO: Apply validation and field hooks to each document
@@ -114,7 +117,7 @@ export class ReplaceManyBuilderImpl<
 export class ReplaceManyBuilderWithoutValidationImpl<
   DataModel extends GenericDataModel,
   TableName extends TableNamesInDataModel<DataModel>,
-  Schema extends ServiceSchema = ServiceSchema
+  Schema extends GenericServiceSchema = GenericServiceSchema
 > implements ReplaceManyBuilderWithoutValidation<DataModel, TableName, Schema>
 {
   constructor(
@@ -123,8 +126,10 @@ export class ReplaceManyBuilderWithoutValidationImpl<
   ) {}
 
   async many(
-    documents: WithRequiredDefaults<
-      OmitSystemFields<DocumentByName<DataModel, TableName>>
+    documents: DocumentWithRequiredDefaults<
+      GetZodSchemaFromService<
+        GetServiceFromSchemaAndTableName<Schema, TableName>
+      >
     >[]
   ): Promise<GenericId<TableName>[]> {
     // Skip validation, replace directly

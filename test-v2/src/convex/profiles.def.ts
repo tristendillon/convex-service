@@ -2,7 +2,7 @@ import { defineService } from '@lunarhue/convex-service/v2'
 import { z } from 'zod/v4'
 import { defaultFields } from './fields'
 
-export const profileService = defineService({
+export const [profilesService, profilesTable] = defineService({
   name: z.string(),
   ...defaultFields,
 })

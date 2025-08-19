@@ -2,53 +2,64 @@ import {
   GenericDataModel,
   GenericDatabaseReader,
   TableNamesInDataModel,
-  DocumentByName,
 } from 'convex/server'
 import { GenericId } from 'convex/values'
-import { ServiceSchema } from '../schema'
-import { GenericRegisteredService } from '../service'
+import { type GenericServiceSchema } from '../schema'
 import * as z from 'zod/v4'
-import type {
-  WithOptionalDefaults,
-  WithRequiredDefaults,
-} from './service-types'
-import type { OmitSystemFields } from '../types'
+import type { CreateZodSchemaFromFields } from '../field'
+import type { GenericRegisteredService } from '../service'
+
+export type GetZodSchemaFromService<Service extends GenericRegisteredService> =
+  CreateZodSchemaFromFields<Service['fields']>
+
+export type GetServiceFromSchemaAndTableName<
+  Schema extends GenericServiceSchema,
+  TableName extends string
+> = Schema extends GenericServiceSchema ? Schema['services'][TableName] : never
 
 export interface InsertBuilder<
   DataModel extends GenericDataModel,
   TableName extends TableNamesInDataModel<DataModel>,
-  ServiceSchema extends any = any
+  Schema extends GenericServiceSchema = GenericServiceSchema
 > {
   one(
-    document: WithOptionalDefaults<
-      OmitSystemFields<DocumentByName<DataModel, TableName>>
+    document: DocumentWithOptionalDefaults<
+      GetZodSchemaFromService<
+        GetServiceFromSchemaAndTableName<Schema, TableName>
+      >
     >
   ): Promise<GenericId<TableName>>
   many(
-    documents: WithOptionalDefaults<
-      OmitSystemFields<DocumentByName<DataModel, TableName>>
+    documents: DocumentWithOptionalDefaults<
+      GetZodSchemaFromService<
+        GetServiceFromSchemaAndTableName<Schema, TableName>
+      >
     >[]
   ): Promise<GenericId<TableName>[]>
   withoutValidation(): InsertBuilderWithoutValidation<
     DataModel,
     TableName,
-    ServiceSchema
+    GenericServiceSchema
   >
 }
 
 export interface InsertBuilderWithoutValidation<
   DataModel extends GenericDataModel,
   TableName extends TableNamesInDataModel<DataModel>,
-  ServiceSchema extends any = any
+  Schema extends GenericServiceSchema = GenericServiceSchema
 > {
   one(
-    document: WithRequiredDefaults<
-      OmitSystemFields<DocumentByName<DataModel, TableName>>
+    document: DocumentWithRequiredDefaults<
+      GetZodSchemaFromService<
+        GetServiceFromSchemaAndTableName<Schema, TableName>
+      >
     >
   ): Promise<GenericId<TableName>>
   many(
-    documents: WithRequiredDefaults<
-      OmitSystemFields<DocumentByName<DataModel, TableName>>
+    documents: DocumentWithRequiredDefaults<
+      GetZodSchemaFromService<
+        GetServiceFromSchemaAndTableName<Schema, TableName>
+      >
     >[]
   ): Promise<GenericId<TableName>[]>
 }
@@ -56,28 +67,32 @@ export interface InsertBuilderWithoutValidation<
 export interface ReplaceOneBuilder<
   DataModel extends GenericDataModel,
   TableName extends TableNamesInDataModel<DataModel>,
-  ServiceSchema extends any = any
+  Schema extends GenericServiceSchema = GenericServiceSchema
 > {
   one(
-    document: WithOptionalDefaults<
-      OmitSystemFields<DocumentByName<DataModel, TableName>>
+    document: DocumentWithOptionalDefaults<
+      GetZodSchemaFromService<
+        GetServiceFromSchemaAndTableName<Schema, TableName>
+      >
     >
   ): Promise<GenericId<TableName>>
   withoutValidation(): ReplaceOneBuilderWithoutValidation<
     DataModel,
     TableName,
-    ServiceSchema
+    GenericServiceSchema
   >
 }
 
 export interface ReplaceOneBuilderWithoutValidation<
   DataModel extends GenericDataModel,
   TableName extends TableNamesInDataModel<DataModel>,
-  ServiceSchema extends any = any
+  Schema extends GenericServiceSchema = GenericServiceSchema
 > {
   one(
-    document: WithRequiredDefaults<
-      OmitSystemFields<DocumentByName<DataModel, TableName>>
+    document: DocumentWithRequiredDefaults<
+      GetZodSchemaFromService<
+        GetServiceFromSchemaAndTableName<Schema, TableName>
+      >
     >
   ): Promise<GenericId<TableName>>
 }
@@ -85,28 +100,32 @@ export interface ReplaceOneBuilderWithoutValidation<
 export interface ReplaceManyBuilder<
   DataModel extends GenericDataModel,
   TableName extends TableNamesInDataModel<DataModel>,
-  ServiceSchema extends any = any
+  Schema extends GenericServiceSchema = GenericServiceSchema
 > {
   many(
-    documents: WithOptionalDefaults<
-      OmitSystemFields<DocumentByName<DataModel, TableName>>
+    documents: DocumentWithOptionalDefaults<
+      GetZodSchemaFromService<
+        GetServiceFromSchemaAndTableName<Schema, TableName>
+      >
     >[]
   ): Promise<GenericId<TableName>[]>
   withoutValidation(): ReplaceManyBuilderWithoutValidation<
     DataModel,
     TableName,
-    ServiceSchema
+    GenericServiceSchema
   >
 }
 
 export interface ReplaceManyBuilderWithoutValidation<
   DataModel extends GenericDataModel,
   TableName extends TableNamesInDataModel<DataModel>,
-  ServiceSchema extends any = any
+  Schema extends GenericServiceSchema = GenericServiceSchema
 > {
   many(
-    documents: WithRequiredDefaults<
-      OmitSystemFields<DocumentByName<DataModel, TableName>>
+    documents: DocumentWithRequiredDefaults<
+      GetZodSchemaFromService<
+        GetServiceFromSchemaAndTableName<Schema, TableName>
+      >
     >[]
   ): Promise<GenericId<TableName>[]>
 }
@@ -114,57 +133,73 @@ export interface ReplaceManyBuilderWithoutValidation<
 export interface PatchOneBuilder<
   DataModel extends GenericDataModel,
   TableName extends TableNamesInDataModel<DataModel>,
-  ServiceSchema extends any = any
+  Schema extends GenericServiceSchema = GenericServiceSchema
 > {
   one(
-    document: Partial<OmitSystemFields<DocumentByName<DataModel, TableName>>>
+    document: Partial<
+      GetZodSchemaFromService<
+        GetServiceFromSchemaAndTableName<Schema, TableName>
+      >
+    >
   ): Promise<GenericId<TableName>>
   withoutValidation(): PatchOneBuilderWithoutValidation<
     DataModel,
     TableName,
-    ServiceSchema
+    GenericServiceSchema
   >
 }
 
 export interface PatchOneBuilderWithoutValidation<
   DataModel extends GenericDataModel,
   TableName extends TableNamesInDataModel<DataModel>,
-  ServiceSchema extends any = any
+  Schema extends GenericServiceSchema = GenericServiceSchema
 > {
   one(
-    document: Partial<OmitSystemFields<DocumentByName<DataModel, TableName>>>
+    document: Partial<
+      GetZodSchemaFromService<
+        GetServiceFromSchemaAndTableName<Schema, TableName>
+      >
+    >
   ): Promise<GenericId<TableName>>
 }
 
 export interface PatchManyBuilder<
   DataModel extends GenericDataModel,
   TableName extends TableNamesInDataModel<DataModel>,
-  ServiceSchema extends any = any
+  Schema extends GenericServiceSchema = GenericServiceSchema
 > {
   many(
-    documents: Partial<OmitSystemFields<DocumentByName<DataModel, TableName>>>[]
+    documents: Partial<
+      GetZodSchemaFromService<
+        GetServiceFromSchemaAndTableName<Schema, TableName>
+      >
+    >[]
   ): Promise<GenericId<TableName>[]>
   withoutValidation(): PatchManyBuilderWithoutValidation<
     DataModel,
     TableName,
-    ServiceSchema
+    GenericServiceSchema
   >
 }
 
 export interface PatchManyBuilderWithoutValidation<
   DataModel extends GenericDataModel,
   TableName extends TableNamesInDataModel<DataModel>,
-  ServiceSchema extends any = any
+  Schema extends GenericServiceSchema = GenericServiceSchema
 > {
   many(
-    documents: Partial<OmitSystemFields<DocumentByName<DataModel, TableName>>>[]
+    documents: Partial<
+      GetZodSchemaFromService<
+        GetServiceFromSchemaAndTableName<Schema, TableName>
+      >
+    >[]
   ): Promise<GenericId<TableName>[]>
 }
 
 // Main database interface that overrides Convex methods
 export interface ServiceDatabaseWriter<
   DataModel extends GenericDataModel,
-  Schema extends ServiceSchema = ServiceSchema
+  Schema extends GenericServiceSchema = GenericServiceSchema
 > extends GenericDatabaseReader<DataModel> {
   // Override insert - returns builder instead of Promise
   insert<TableName extends TableNamesInDataModel<DataModel>>(
@@ -202,14 +237,14 @@ export interface ServiceDatabaseWriter<
 // Helper types for validation
 export type ServiceValidationContext<
   DataModel extends GenericDataModel,
-  Schema extends ServiceSchema = ServiceSchema
+  Schema extends GenericServiceSchema = GenericServiceSchema
 > = {
   schema: Schema
   dataModel: DataModel
 }
 
 // Document type helpers that handle ZodDefault fields
-export type DocumentWithDefaults<T> = T extends z.ZodObject<infer Shape>
+export type DocumentWithOptionalDefaults<T> = T extends z.ZodObject<infer Shape>
   ? {
       [K in keyof Shape]: Shape[K] extends z.ZodDefault<infer Inner>
         ? z.infer<Inner> | undefined // Make ZodDefault fields optional
@@ -219,7 +254,7 @@ export type DocumentWithDefaults<T> = T extends z.ZodObject<infer Shape>
     }
   : T
 
-export type DocumentWithoutDefaults<T> = T extends z.ZodObject<infer Shape>
+export type DocumentWithRequiredDefaults<T> = T extends z.ZodObject<infer Shape>
   ? {
       [K in keyof Shape]: Shape[K] extends z.ZodDefault<infer Inner>
         ? z.infer<Inner> // ZodDefault fields are required

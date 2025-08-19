@@ -58,16 +58,13 @@ export type SearchIndex<Fields extends GenericFields> = {
   searchField: FieldPaths<Fields>
   filterFields: FieldPaths<Fields>[]
 }
-type IndexStrategies<Fields extends GenericFields> = {
+type IndexStrategies<Fields extends GenericFields = any> = {
   indexes: Index<Fields>[]
   searchIndexes: SearchIndex<Fields>[]
   vectorIndexes: VectorIndex<Fields>[]
 }
 
-type ServiceValidators<
-  Fields extends GenericFields,
-  State extends ServiceState<Fields>
-> = {
+type ServiceValidators<Fields extends GenericFields> = {
   validator: ServiceFieldsToConvex<Fields>
   withoutDefaults: GenericValidator
   withDefaults: GenericValidator
@@ -79,7 +76,7 @@ type CompositeUnique<Fields extends GenericFields> = {
 }
 
 type ServiceState<Fields extends GenericFields> = {
-  validators: ServiceValidators<Fields, ServiceState<Fields>>
+  validators: ServiceValidators<Fields>
   compositeUniques: Record<string, CompositeUnique<Fields>>
 }
 
@@ -89,77 +86,60 @@ type FieldPaths<Fields> = keyof Fields & string
 
 type AnyServiceFields = Record<string, ServiceField<any, any>>
 
-export type GenericRegisteredService = RegisteredServiceInterface<
-  any,
-  any,
-  any,
-  any,
-  any
->
-
 type RegisteredServiceOptions = {
   serviceHooks?: GenericServiceHooks
   fieldHooks?: GenericFieldHooks
   rls?: GenericRlsRules
 }
-
-interface RegisteredServiceInterface<
-  Fields extends GenericFields,
-  Validator extends GenericValidator,
-  Indexes extends GenericTableIndexes = {},
-  SearchIndexes extends GenericTableSearchIndexes = {},
-  VectorIndexes extends GenericTableVectorIndexes = {}
-> extends TableDefinition<Validator, Indexes, SearchIndexes, VectorIndexes> {
-  export(): {
-    name: string
-    indexes: Index<Fields>[]
-    searchIndexes: SearchIndex<Fields>[]
-    vectorIndexes: VectorIndex<Fields>[]
-    state: ServiceState<Fields>
-    fields: Fields
-    serviceHooks: GenericServiceHooks | undefined
-    fieldHooks: GenericFieldHooks | undefined
-    rlsRules: GenericRlsRules | undefined
-    documentType: any
-  }
-}
-
-type TableDefinitionData<Fields extends GenericFields> = {
-  state: ServiceState<Fields>
-  fields: Fields
-  name: string
-  indexStrategies: IndexStrategies<Fields>
-}
-
-export class RegisteredService<
-  Fields extends GenericFields,
+export type GenericServiceTable = ServiceTable<any, any, any, any>
+export class ServiceTable<
   Validator extends GenericValidator,
   Indexes extends GenericTableIndexes = {},
   SearchIndexes extends GenericTableSearchIndexes = {},
   VectorIndexes extends GenericTableVectorIndexes = {}
 > {
-  private _state: ServiceState<Fields> = {} as ServiceState<Fields>
-  private _indexStrategies: IndexStrategies<Fields> = {
+  validator: Validator
+  private _indexStrategies: IndexStrategies = {
     indexes: [],
     searchIndexes: [],
     vectorIndexes: [],
   }
-  private _fields: Fields = {} as Fields
-  private _serviceHooks: GenericServiceHooks | undefined
-  private _fieldHooks: GenericFieldHooks | undefined
-  private _rlsRules: GenericRlsRules | undefined
-  private _name: string = ''
-  constructor(
-    tableData: TableDefinitionData<Fields>,
-    options: RegisteredServiceOptions = {}
-  ) {
-    this._name = tableData.name
-    this._fields = tableData.fields
-    this._state = tableData.state
-    this._indexStrategies = tableData.indexStrategies
-    this._serviceHooks = options.serviceHooks
-    this._fieldHooks = options.fieldHooks
-    this._rlsRules = options.rls
+  constructor(validator: Validator, indexStrategies: IndexStrategies) {
+    this.validator = validator
+    this._indexStrategies = indexStrategies
+  }
+
+  /**
+   * @deprecated This method is deprecated.
+   * Please use {@link defineService().index()} instead.
+   * See: GITHUB LINK
+   */
+  index() {
+    throw new Error(
+      'Method not implemented. use defineService().index() instead. See: GITHUB LINK'
+    )
+  }
+
+  /**
+   * @deprecated This method is deprecated.
+   * Please use {@link defineService().searchIndex()} instead.
+   * See: GITHUB LINK
+   */
+  searchIndex() {
+    throw new Error(
+      'Method not implemented. use defineService().searchIndex() instead. See: GITHUB LINK'
+    )
+  }
+
+  /**
+   * @deprecated This method is deprecated.
+   * Please use {@link defineService().vectorIndex()} instead.
+   * See: GITHUB LINK
+   */
+  vectorIndex() {
+    throw new Error(
+      'Method not implemented. use defineService().vectorIndex() instead. See: GITHUB LINK'
+    )
   }
 
   protected self(): TableDefinition<
@@ -168,7 +148,12 @@ export class RegisteredService<
     SearchIndexes,
     VectorIndexes
   > {
-    throw new Error('Method not implemented.')
+    return this as unknown as TableDefinition<
+      Validator,
+      Indexes,
+      SearchIndexes,
+      VectorIndexes
+    >
   }
 
   ' indexes'(): { indexDescriptor: string; fields: string[] }[] {
@@ -176,32 +161,39 @@ export class RegisteredService<
   }
 
   export() {
-    const documentType = (this._state.validators.validator as any).json
+    const documentType = (this.validator as any).json
     if (typeof documentType !== 'object') {
       throw new Error(
+        // change comment later to docus link for defineService
         'Invalid validator: please make sure that the parameter of `defineTable` is valid (see https://docs.convex.dev/database/schemas)'
       )
     }
-
-    console.log(this._indexStrategies.indexes)
 
     return {
       indexes: this._indexStrategies.indexes,
       searchIndexes: this._indexStrategies.searchIndexes,
       vectorIndexes: this._indexStrategies.vectorIndexes,
       documentType,
-
-      name: this._name,
-      state: this._state,
-      fields: this._fields,
-      serviceHooks: this._serviceHooks,
-      fieldHooks: this._fieldHooks,
-      rlsRules: this._rlsRules,
     }
   }
 }
 
-export type GenericService = Service<any, any>
+export type GenericRegisteredService = RegisteredService<any>
+
+export interface RegisteredService<Fields extends GenericFields> {
+  fields: Fields
+  validators: ServiceValidators<Fields>
+  name: string
+  $indexStrategies: IndexStrategies<Fields>
+  $state: ServiceState<Fields>
+  $hooks: {
+    service?: GenericServiceHooks
+    field?: GenericFieldHooks
+  }
+  $rls?: GenericRlsRules
+}
+
+export type GenericService = Service<any, any, any, any>
 
 export class Service<
   Fields extends GenericFields,
@@ -369,7 +361,17 @@ export class Service<
     return this
   }
 
-  public register(options: RegisteredServiceOptions = {}) {
+  public register(
+    options: RegisteredServiceOptions = {}
+  ): [
+    RegisteredService<Fields>,
+    TableDefinition<
+      ServiceFieldsToConvex<Fields>,
+      Expand<Indexes & GetUniqueFieldIndexes<Fields>>,
+      SearchIndexes,
+      VectorIndexes
+    >
+  ] {
     for (const [key, value] of Object.entries(this._fields)) {
       if (value instanceof ServiceField) {
         if (ServiceField.isUnique(value)) {
@@ -377,29 +379,30 @@ export class Service<
         }
       }
     }
-    const registeredService = new RegisteredService<
-      Fields,
-      ServiceFieldsToConvex<Fields>,
-      Expand<Indexes & GetUniqueFieldIndexes<Fields>>,
-      SearchIndexes,
-      VectorIndexes
-    >(
-      {
-        state: this._state,
-        fields: this._fields,
-        name: this._name,
-        indexStrategies: this._indexStrategies,
-      },
-      options
-    )
-
-    return registeredService as unknown as RegisteredServiceInterface<
-      Fields,
+    const table = new ServiceTable(
+      this._state.validators.validator,
+      this._indexStrategies
+    ) as unknown as TableDefinition<
       ServiceFieldsToConvex<Fields>,
       Expand<Indexes & GetUniqueFieldIndexes<Fields>>,
       SearchIndexes,
       VectorIndexes
     >
+
+    const service: RegisteredService<Fields> = {
+      fields: this._fields,
+      validators: this._state.validators,
+      name: this._name,
+      $indexStrategies: this._indexStrategies,
+      $state: this._state,
+      $hooks: {
+        service: options.serviceHooks,
+        field: options.fieldHooks,
+      },
+      $rls: options.rls,
+    }
+
+    return [service, table]
   }
 }
 

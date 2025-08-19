@@ -2,25 +2,22 @@ import {
   GenericDataModel,
   GenericMutationCtx,
   TableNamesInDataModel,
-  DocumentByName,
 } from 'convex/server'
 import { GenericId } from 'convex/values'
 import {
   InsertBuilder,
   InsertBuilderWithoutValidation,
-  ServiceValidationContext,
+  type DocumentWithOptionalDefaults,
+  type DocumentWithRequiredDefaults,
+  type GetServiceFromSchemaAndTableName,
+  type GetZodSchemaFromService,
 } from '../types'
-import { ServiceSchema } from '../../schema'
-import type {
-  WithOptionalDefaults,
-  WithRequiredDefaults,
-} from '../service-types'
-import type { OmitSystemFields } from '../../types'
+import { type GenericServiceSchema } from '../../schema'
 
 export class InsertBuilderImpl<
   DataModel extends GenericDataModel,
   TableName extends TableNamesInDataModel<DataModel>,
-  Schema extends ServiceSchema = ServiceSchema
+  Schema extends GenericServiceSchema = GenericServiceSchema
 > implements InsertBuilder<DataModel, TableName, Schema>
 {
   constructor(
@@ -29,8 +26,10 @@ export class InsertBuilderImpl<
   ) {}
 
   async one(
-    document: WithOptionalDefaults<
-      OmitSystemFields<DocumentByName<DataModel, TableName>>
+    document: DocumentWithOptionalDefaults<
+      GetZodSchemaFromService<
+        GetServiceFromSchemaAndTableName<Schema, TableName>
+      >
     >
   ): Promise<GenericId<TableName>> {
     // Apply validation with defaults
@@ -38,8 +37,10 @@ export class InsertBuilderImpl<
   }
 
   async many(
-    documents: WithOptionalDefaults<
-      OmitSystemFields<DocumentByName<DataModel, TableName>>
+    documents: DocumentWithOptionalDefaults<
+      GetZodSchemaFromService<
+        GetServiceFromSchemaAndTableName<Schema, TableName>
+      >
     >[]
   ): Promise<GenericId<TableName>[]> {
     // Apply validation with defaults to each document
@@ -61,7 +62,7 @@ export class InsertBuilderImpl<
 export class InsertBuilderWithoutValidationImpl<
   DataModel extends GenericDataModel,
   TableName extends TableNamesInDataModel<DataModel>,
-  Schema extends ServiceSchema = ServiceSchema
+  Schema extends GenericServiceSchema = GenericServiceSchema
 > implements InsertBuilderWithoutValidation<DataModel, TableName, Schema>
 {
   constructor(
@@ -70,8 +71,10 @@ export class InsertBuilderWithoutValidationImpl<
   ) {}
 
   async one(
-    document: WithRequiredDefaults<
-      OmitSystemFields<DocumentByName<DataModel, TableName>>
+    document: DocumentWithRequiredDefaults<
+      GetZodSchemaFromService<
+        GetServiceFromSchemaAndTableName<Schema, TableName>
+      >
     >
   ): Promise<GenericId<TableName>> {
     // Apply minimal validation without defaults
@@ -79,8 +82,10 @@ export class InsertBuilderWithoutValidationImpl<
   }
 
   async many(
-    documents: WithRequiredDefaults<
-      OmitSystemFields<DocumentByName<DataModel, TableName>>
+    documents: DocumentWithRequiredDefaults<
+      GetZodSchemaFromService<
+        GetServiceFromSchemaAndTableName<Schema, TableName>
+      >
     >[]
   ): Promise<GenericId<TableName>[]> {
     // Apply minimal validation without defaults to each document

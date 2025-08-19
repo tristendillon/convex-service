@@ -2,7 +2,6 @@ import {
   GenericDataModel,
   GenericMutationCtx,
   TableNamesInDataModel,
-  DocumentByName,
 } from 'convex/server'
 import { GenericId } from 'convex/values'
 import {
@@ -10,14 +9,15 @@ import {
   PatchOneBuilderWithoutValidation,
   PatchManyBuilder,
   PatchManyBuilderWithoutValidation,
-  ServiceValidationContext,
+  type GetZodSchemaFromService,
+  type GetServiceFromSchemaAndTableName,
 } from '../types'
-import { ServiceSchema } from '../../schema'
+import { type GenericServiceSchema } from '../../schema'
 
 export class PatchOneBuilderImpl<
   DataModel extends GenericDataModel,
   TableName extends TableNamesInDataModel<DataModel>,
-  Schema extends ServiceSchema = ServiceSchema
+  Schema extends GenericServiceSchema = GenericServiceSchema
 > implements PatchOneBuilder<DataModel, TableName, Schema>
 {
   constructor(
@@ -26,10 +26,14 @@ export class PatchOneBuilderImpl<
   ) {}
 
   async one(
-    document: Partial<DocumentByName<DataModel, TableName>>
+    document: Partial<
+      GetZodSchemaFromService<
+        GetServiceFromSchemaAndTableName<Schema, TableName>
+      >
+    >
   ): Promise<GenericId<TableName>> {
     // TODO: Apply validation and field hooks
-    await this.ctx.db.patch(this.id, document)
+    await this.ctx.db.patch(this.id, document as any)
     return this.id
   }
 
@@ -45,7 +49,7 @@ export class PatchOneBuilderImpl<
 export class PatchOneBuilderWithoutValidationImpl<
   DataModel extends GenericDataModel,
   TableName extends TableNamesInDataModel<DataModel>,
-  Schema extends ServiceSchema = ServiceSchema
+  Schema extends GenericServiceSchema = GenericServiceSchema
 > implements PatchOneBuilderWithoutValidation<DataModel, TableName, Schema>
 {
   constructor(
@@ -54,10 +58,14 @@ export class PatchOneBuilderWithoutValidationImpl<
   ) {}
 
   async one(
-    document: Partial<DocumentByName<DataModel, TableName>>
+    document: Partial<
+      GetZodSchemaFromService<
+        GetServiceFromSchemaAndTableName<Schema, TableName>
+      >
+    >
   ): Promise<GenericId<TableName>> {
     // Skip validation, patch directly
-    await this.ctx.db.patch(this.id, document)
+    await this.ctx.db.patch(this.id, document as any)
     return this.id
   }
 }
@@ -65,7 +73,7 @@ export class PatchOneBuilderWithoutValidationImpl<
 export class PatchManyBuilderImpl<
   DataModel extends GenericDataModel,
   TableName extends TableNamesInDataModel<DataModel>,
-  Schema extends ServiceSchema = ServiceSchema
+  Schema extends GenericServiceSchema = GenericServiceSchema
 > implements PatchManyBuilder<DataModel, TableName, Schema>
 {
   constructor(
@@ -74,7 +82,11 @@ export class PatchManyBuilderImpl<
   ) {}
 
   async many(
-    documents: Partial<DocumentByName<DataModel, TableName>>[]
+    documents: Partial<
+      GetZodSchemaFromService<
+        GetServiceFromSchemaAndTableName<Schema, TableName>
+      >
+    >[]
   ): Promise<GenericId<TableName>[]> {
     // TODO: Apply validation and field hooks to each document
     if (documents.length !== this.ids.length) {
@@ -84,7 +96,9 @@ export class PatchManyBuilderImpl<
     }
 
     await Promise.all(
-      this.ids.map((id, index) => this.ctx.db.patch(id, documents[index]))
+      this.ids.map((id, index) =>
+        this.ctx.db.patch(id, documents[index] as any)
+      )
     )
     return this.ids
   }
@@ -101,7 +115,7 @@ export class PatchManyBuilderImpl<
 export class PatchManyBuilderWithoutValidationImpl<
   DataModel extends GenericDataModel,
   TableName extends TableNamesInDataModel<DataModel>,
-  Schema extends ServiceSchema = ServiceSchema
+  Schema extends GenericServiceSchema = GenericServiceSchema
 > implements PatchManyBuilderWithoutValidation<DataModel, TableName, Schema>
 {
   constructor(
@@ -110,7 +124,11 @@ export class PatchManyBuilderWithoutValidationImpl<
   ) {}
 
   async many(
-    documents: Partial<DocumentByName<DataModel, TableName>>[]
+    documents: Partial<
+      GetZodSchemaFromService<
+        GetServiceFromSchemaAndTableName<Schema, TableName>
+      >
+    >[]
   ): Promise<GenericId<TableName>[]> {
     // Skip validation, patch directly
     if (documents.length !== this.ids.length) {
@@ -120,7 +138,9 @@ export class PatchManyBuilderWithoutValidationImpl<
     }
 
     await Promise.all(
-      this.ids.map((id, index) => this.ctx.db.patch(id, documents[index]))
+      this.ids.map((id, index) =>
+        this.ctx.db.patch(id, documents[index] as any)
+      )
     )
     return this.ids
   }

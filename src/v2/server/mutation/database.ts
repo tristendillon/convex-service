@@ -4,8 +4,8 @@ import {
   TableNamesInDataModel,
 } from 'convex/server'
 import { GenericId } from 'convex/values'
-import { ServiceDatabaseWriter, ServiceValidationContext } from './types'
-import { ServiceSchema } from '../schema'
+import { ServiceDatabaseWriter } from './types'
+import { type GenericServiceSchema } from '../schema'
 import {
   InsertBuilderImpl,
   ReplaceOneBuilderImpl,
@@ -17,7 +17,7 @@ import {
 
 export class ServiceDatabaseWriterImpl<
   DataModel extends GenericDataModel,
-  Schema extends ServiceSchema = ServiceSchema
+  Schema extends GenericServiceSchema = GenericServiceSchema
 > implements ServiceDatabaseWriter<DataModel, Schema>
 {
   private deleteOperations: DeleteOperations<DataModel, Schema>
