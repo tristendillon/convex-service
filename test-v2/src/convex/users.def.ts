@@ -25,10 +25,16 @@ rls.rule('read', async () => {
   return true
 })
 
-serviceHooks.before(async ({ value, operation }) => {
-  console.log('serviceHooks.before', value, operation)
-  return value
-})
+serviceHooks
+  .before(async ({ value, operation }) => {
+    console.log('serviceHooks.before', value, operation)
+    return value
+  })
+  .after(async ({ oldValue, newValue, operation }) => {
+    console.log('serviceHooks.after oldValue', oldValue)
+    console.log('serviceHooks.after newValue', newValue)
+    console.log('serviceHooks.after operation', operation)
+  })
 
 fieldHooks.field('fullName').before(async ({ value, operation }) => {
   if (operation === 'insert' || operation === 'update') {

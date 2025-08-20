@@ -31,10 +31,17 @@ export interface OperationContext<
   ctx: GenericMutationCtx<DataModel>
   schema: Schema
   operation: OperationType
+  config: PipelineConfig
   data?: any
   id?: GenericId<ServiceName>
   ids?: GenericId<ServiceName>[]
   patchedFields?: Set<string>
+  originalDocument?: any // Document before any modifications (for patch/delete operations)
+  processedData?: any // Data after before hooks stage (for after hooks)
+  systemFields?: {
+    _id?: GenericId<ServiceName>
+    _creationTime?: number
+  }
 }
 
 export interface RestrictionCheckResult {

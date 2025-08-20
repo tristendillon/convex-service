@@ -83,6 +83,7 @@ export class OperationPipeline<
       ctx: this.ctx,
       schema: this.schema,
       operation,
+      config: pipelineConfig,
       data,
     }
 
@@ -132,15 +133,23 @@ export class OperationPipeline<
   }
 
   // Convenience methods for different operations
-  async insert(data: any, config?: Partial<PipelineConfig>): Promise<GenericId<ServiceName>> {
+  async insert(
+    data: any,
+    config?: Partial<PipelineConfig>
+  ): Promise<GenericId<ServiceName>> {
     const mergedConfig = mergeWithDefaults('insert', config)
     return this.executeOperation('insert', data, undefined, mergedConfig)
   }
 
-  async insertMany(data: any[], config?: Partial<PipelineConfig>): Promise<GenericId<ServiceName>[]> {
+  async insertMany(
+    data: any[],
+    config?: Partial<PipelineConfig>
+  ): Promise<GenericId<ServiceName>[]> {
     const mergedConfig = mergeWithDefaults('insert', config)
     return Promise.all(
-      data.map((item) => this.executeOperation('insert', item, undefined, mergedConfig))
+      data.map((item) =>
+        this.executeOperation('insert', item, undefined, mergedConfig)
+      )
     )
   }
 
@@ -165,7 +174,9 @@ export class OperationPipeline<
     }
     const mergedConfig = mergeWithDefaults('patch', config)
     return Promise.all(
-      ids.map((id, index) => this.executeOperation('patch', data[index], id, mergedConfig))
+      ids.map((id, index) =>
+        this.executeOperation('patch', data[index], id, mergedConfig)
+      )
     )
   }
 
@@ -190,11 +201,16 @@ export class OperationPipeline<
     }
     const mergedConfig = mergeWithDefaults('replace', config)
     return Promise.all(
-      ids.map((id, index) => this.executeOperation('replace', data[index], id, mergedConfig))
+      ids.map((id, index) =>
+        this.executeOperation('replace', data[index], id, mergedConfig)
+      )
     )
   }
 
-  async delete(id: GenericId<ServiceName>, config?: Partial<PipelineConfig>): Promise<GenericId<ServiceName>> {
+  async delete(
+    id: GenericId<ServiceName>,
+    config?: Partial<PipelineConfig>
+  ): Promise<GenericId<ServiceName>> {
     const mergedConfig = mergeWithDefaults('delete', config)
     return this.executeOperation('delete', undefined, id, mergedConfig)
   }
@@ -207,7 +223,9 @@ export class OperationPipeline<
     // Let's process them individually to ensure proper hook execution per item
     const mergedConfig = mergeWithDefaults('delete', config)
     return Promise.all(
-      ids.map((id) => this.executeOperation('delete', undefined, id, mergedConfig))
+      ids.map((id) =>
+        this.executeOperation('delete', undefined, id, mergedConfig)
+      )
     )
   }
 }

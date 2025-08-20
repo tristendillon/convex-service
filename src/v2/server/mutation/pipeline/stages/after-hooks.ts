@@ -17,6 +17,35 @@ export class AfterHookStage implements PipelineStage {
       throw new Error(`Service ${context.serviceName} not found in schema`)
     }
 
+    // Determine old and new values based on operation type
+    let oldValue: any
+    let newValue: any
+
+    switch (context.operation) {
+      case 'insert':
+        oldValue = undefined
+        newValue = { ...context.processedData, ...context.systemFields }
+        break
+      case 'patch':
+        oldValue = context.originalDocument
+        newValue = {
+          ...context.processedData,
+          ...context.systemFields,
+        }
+        break
+      case 'replace':
+        oldValue = { ...context.originalDocument, ...context.systemFields }
+        newValue = { ...context.processedData, ...context.systemFields }
+        break
+      case 'delete':
+        oldValue = context.originalDocument
+        newValue = undefined
+        break
+      default:
+        oldValue = undefined
+        newValue = context.originalDocument
+    }
+
     // Execute service-level after hooks
     if (service.$hooks.service) {
       const serviceHooks = ServiceHooks.getServiceHooks(service.$hooks.service)
@@ -28,9 +57,10 @@ export class AfterHookStage implements PipelineStage {
         }
 
         await serviceHooks.after({
-          value: data,
           operation: hookOperation,
           ctx: hookCtx,
+          oldValue: oldValue,
+          newValue: newValue,
         })
       }
     }
@@ -45,9 +75,10 @@ export class AfterHookStage implements PipelineStage {
           const hookCtx = { ...context.ctx, meta: {} }
 
           await fieldHook.after({
-            value: data,
             operation: hookOperation,
             ctx: hookCtx,
+            oldValue: oldValue[fieldName],
+            newValue: newValue[fieldName],
           })
         }
       }
@@ -55,16 +86,21 @@ export class AfterHookStage implements PipelineStage {
 
     // Execute ServiceField hooks
     for (const [fieldName, field] of Object.entries(service.fields)) {
-      if (field instanceof ServiceField && data && data[fieldName] !== undefined) {
+      if (
+        field instanceof ServiceField &&
+        data &&
+        data[fieldName] !== undefined
+      ) {
         const fieldHooks = field.fieldHooks
         if (fieldHooks?.after) {
           const hookOperation = this.mapOperationType(context.operation)
           const hookCtx = { ...context.ctx, meta: {} }
 
           await fieldHooks.after({
-            value: data,
             operation: hookOperation,
             ctx: hookCtx,
+            oldValue: oldValue[fieldName],
+            newValue: newValue[fieldName],
           })
         }
       }

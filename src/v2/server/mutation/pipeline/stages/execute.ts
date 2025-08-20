@@ -4,7 +4,10 @@ import { GenericId } from 'convex/values'
 export class ExecuteStage implements PipelineStage {
   name = 'execute'
 
-  async execute(context: OperationContext<any, any, any>, data: any): Promise<any> {
+  async execute(
+    context: OperationContext<any, any, any>,
+    data: any
+  ): Promise<any> {
     switch (context.operation) {
       case 'insert':
         return this.executeInsert(context, data)
@@ -23,7 +26,12 @@ export class ExecuteStage implements PipelineStage {
     context: OperationContext<any, any, any>,
     data: any
   ): Promise<GenericId<any>> {
-    return await context.ctx.db.insert(context.serviceName, data)
+    const id = await context.ctx.db.insert(context.serviceName, data)
+    context.systemFields = {
+      _id: id,
+      _creationTime: Date.now(),
+    }
+    return id
   }
 
   private async executePatch(
@@ -33,24 +41,23 @@ export class ExecuteStage implements PipelineStage {
     if (!context.id) {
       throw new Error('ID required for patch operation')
     }
-    
+
     // Skip patch if no fields actually changed
     if (context.patchedFields && context.patchedFields.size === 0) {
-      console.log('No fields changed, skipping database patch operation')
       return context.id
     }
-    
+
     // Only patch with the fields that actually changed
     if (context.patchedFields) {
-      const originalPatch = context.data || {}
+      const originalPatch = data || {}
       const patchData: Record<string, any> = {}
-      
+
       for (const field of context.patchedFields) {
         if (field in originalPatch) {
           patchData[field] = originalPatch[field]
         }
       }
-      
+
       if (Object.keys(patchData).length > 0) {
         await context.ctx.db.patch(context.id, patchData)
       }
@@ -58,7 +65,12 @@ export class ExecuteStage implements PipelineStage {
       // Fallback to original behavior if patchedFields not set
       await context.ctx.db.patch(context.id, data)
     }
-    
+
+    context.systemFields = {
+      _id: context.id,
+      _creationTime: context.originalDocument._creationTime,
+    }
+
     return context.id
   }
 
@@ -70,6 +82,10 @@ export class ExecuteStage implements PipelineStage {
       throw new Error('ID required for replace operation')
     }
     await context.ctx.db.replace(context.id, data)
+    context.systemFields = {
+      _id: context.id,
+      _creationTime: Date.now(),
+    }
     return context.id
   }
 

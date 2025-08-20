@@ -30,40 +30,47 @@ export class BeforeHookStage implements PipelineStage {
         const hookOperation = this.mapOperationType(context.operation)
         const hookCtx = { ...context.ctx, meta: {} }
 
-        console.log(
-          '[PIPELINE][BEFORE HOOKS] Service Hook',
-          serviceHooks.before
-        )
-
+        const old = processedData
         processedData = await serviceHooks.before({
           value: processedData,
           operation: hookOperation,
           ctx: hookCtx,
         })
+        // After running the service-level before hook, diff the old vs processedData,
+        // and for any changed key, add it to context.patchedFields (for patch operations).
+        if (context.operation === 'patch' && context.patchedFields) {
+          if (
+            old &&
+            processedData &&
+            typeof old === 'object' &&
+            typeof processedData === 'object'
+          ) {
+            for (const key of Object.keys(processedData)) {
+              if (old[key] !== processedData[key]) {
+                context.patchedFields.add(key)
+              }
+            }
+          }
+        }
       }
     }
 
     // Execute field-level before hooks from FieldHooks registry
-    console.log('[PIPELINE][BEFORE HOOKS] Field Hooks', service.$hooks.field)
     if (service.$hooks.field) {
       const fieldHooks = service.$hooks.field.fieldHooks
 
       for (const [fieldName, fieldHook] of fieldHooks) {
-        console.log(
-          `[PIPELINE][BEFORE HOOKS][FIELD][${fieldName}] Field Hook`,
-          fieldHook
-        )
         if (fieldHook.before) {
           const hookOperation = this.mapOperationType(context.operation)
           const hookCtx = { ...context.ctx, meta: {} }
-
-          console.log('[PIPELINE][BEFORE HOOKS] Field Hook', fieldHook.before)
-
           processedData[fieldName] = await fieldHook.before({
             value: processedData,
             operation: hookOperation,
             ctx: hookCtx,
           })
+          if (context.operation === 'patch') {
+            context.patchedFields?.add(fieldName)
+          }
         }
       }
     }
@@ -76,23 +83,20 @@ export class BeforeHookStage implements PipelineStage {
           const hookOperation = this.mapOperationType(context.operation)
           const hookCtx = { ...context.ctx, meta: {} }
 
-          console.log(
-            `[PIPELINE][BEFORE HOOKS][SERVICE FIELD][${fieldName}] Hook`,
-            fieldHooks.before
-          )
-
           processedData[fieldName] = await fieldHooks.before({
             value: processedData,
             operation: hookOperation,
             ctx: hookCtx,
           })
-          console.log(
-            `[PIPELINE][BEFORE HOOKS][SERVICE FIELD][${fieldName}] Processed Data`,
-            processedData
-          )
+          if (context.operation === 'patch') {
+            context.patchedFields?.add(fieldName)
+          }
         }
       }
     }
+
+    // Store processed data in context for use by after hooks
+    context.processedData = processedData
 
     return processedData
   }

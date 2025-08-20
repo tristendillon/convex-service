@@ -1,7 +1,7 @@
 import * as z from 'zod/v4'
 import { ZodToConvex } from './zod'
-import type { ServiceOperation } from './types'
 import type { Expand } from '../types'
+import type { BeforeOperation, AfterOperation } from './types'
 
 type ExtractZodType<T extends Field> = T extends ServiceField<infer U>
   ? U
@@ -39,22 +39,22 @@ export type GenericFields = Record<string, Field>
 
 type ServiceFieldHooks<ZodValidator extends z.ZodType = z.ZodType> = {
   before?: (
-    operation: ServiceOperation<z.infer<ZodValidator>>
+    operation: BeforeOperation<z.infer<ZodValidator>>
   ) => Promise<z.infer<ZodValidator>> | z.infer<ZodValidator>
   after?: (
-    operation: ServiceOperation<z.infer<ZodValidator>>
+    operation: AfterOperation<z.infer<ZodValidator>>
   ) => Promise<void> | void
 }
 
 type ServiceFieldHookSetters<ZodValidator extends z.ZodType = z.ZodType> = {
   before: (
     hook: (
-      operation: ServiceOperation<z.infer<ZodValidator>>
+      operation: BeforeOperation<z.infer<ZodValidator>>
     ) => Promise<z.infer<ZodValidator>> | z.infer<ZodValidator>
   ) => void
   after: (
     hook: (
-      operation: ServiceOperation<z.infer<ZodValidator>>
+      operation: AfterOperation<z.infer<ZodValidator>>
     ) => Promise<void> | void
   ) => void
 }

@@ -3,7 +3,10 @@ import type {
   GenericMutationCtx,
   TableNamesInDataModel,
 } from 'convex/server'
-import type { ServiceOperationByDataModel } from '../types'
+import type {
+  BeforeOperationByDataModel,
+  AfterOperationByDataModel,
+} from '../types'
 import type { FieldHooks } from './field'
 
 export type HookDefinitionFromDataModel<
@@ -12,14 +15,10 @@ export type HookDefinitionFromDataModel<
   FieldType = any
 > = {
   before?: (
-    operation: ServiceOperationByDataModel<DataModel, TableName>
+    operation: BeforeOperationByDataModel<DataModel, TableName>
   ) => Promise<FieldType> | FieldType
   after?: (
-    operation: ServiceOperationByDataModel<
-      DataModel,
-      TableName,
-      GenericMutationCtx<DataModel>
-    >
+    operation: AfterOperationByDataModel<DataModel, TableName>
   ) => Promise<void> | void
 }
 
