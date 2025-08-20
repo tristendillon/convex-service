@@ -14,28 +14,30 @@ import {
   type DocumentWithRequiredDefaults,
   type GetZodSchemaFromService,
   type ExtractDocumentTypeWithoutDefaults,
+  type ExtractDocumentType,
 } from '../types'
-import { type GenericServiceSchema } from '../../schema'
+import {
+  type GenericServiceSchema,
+  type ServiceNamesInServiceSchema,
+} from '../../schema'
 
 export class ReplaceOneBuilderImpl<
   DataModel extends GenericDataModel,
-  TableName extends TableNamesInDataModel<DataModel>,
-  Schema extends GenericServiceSchema = GenericServiceSchema
-> implements ReplaceOneBuilder<DataModel, TableName, Schema>
+  Schema extends GenericServiceSchema,
+  ServiceName extends ServiceNamesInServiceSchema<Schema>,
+  TInput extends ExtractDocumentTypeWithoutDefaults<
+    Schema,
+    ServiceName
+  > = ExtractDocumentTypeWithoutDefaults<Schema, ServiceName>
+> implements ReplaceOneBuilder<DataModel, Schema, ServiceName>
 {
   constructor(
-    private id: GenericId<TableName>,
+    private id: GenericId<ServiceName>,
     private ctx: GenericMutationCtx<DataModel>,
     private schema: Schema
   ) {}
 
-  async one(
-    document: DocumentWithOptionalDefaults<
-      GetZodSchemaFromService<
-        GetServiceFromSchemaAndTableName<Schema, TableName>
-      >
-    >
-  ): Promise<GenericId<TableName>> {
+  async one(document: TInput): Promise<GenericId<ServiceName>> {
     // TODO: Apply validation and field hooks
     await this.ctx.db.replace(this.id, document as any)
     return this.id
@@ -52,21 +54,21 @@ export class ReplaceOneBuilderImpl<
 
 export class ReplaceOneBuilderWithoutValidationImpl<
   DataModel extends GenericDataModel,
-  TableName extends TableNamesInDataModel<DataModel>,
-  Schema extends GenericServiceSchema = GenericServiceSchema,
-  TInput extends ExtractDocumentTypeWithoutDefaults<
+  Schema extends GenericServiceSchema,
+  ServiceName extends ServiceNamesInServiceSchema<Schema>,
+  TInput extends ExtractDocumentType<Schema, ServiceName> = ExtractDocumentType<
     Schema,
-    TableName
-  > = ExtractDocumentTypeWithoutDefaults<Schema, TableName>
-> implements ReplaceOneBuilderWithoutValidation<DataModel, TableName, Schema>
+    ServiceName
+  >
+> implements ReplaceOneBuilderWithoutValidation<DataModel, Schema, ServiceName>
 {
   constructor(
-    private id: GenericId<TableName>,
+    private id: GenericId<ServiceName>,
     private ctx: GenericMutationCtx<DataModel>,
     private schema: Schema
   ) {}
 
-  async one(document: TInput): Promise<GenericId<TableName>> {
+  async one(document: TInput): Promise<GenericId<ServiceName>> {
     // Skip validation, replace directly
     await this.ctx.db.replace(this.id, document as any)
     return this.id
@@ -75,21 +77,21 @@ export class ReplaceOneBuilderWithoutValidationImpl<
 
 export class ReplaceManyBuilderImpl<
   DataModel extends GenericDataModel,
-  TableName extends TableNamesInDataModel<DataModel>,
-  Schema extends GenericServiceSchema = GenericServiceSchema,
+  Schema extends GenericServiceSchema,
+  ServiceName extends ServiceNamesInServiceSchema<Schema>,
   TInput extends ExtractDocumentTypeWithoutDefaults<
     Schema,
-    TableName
-  > = ExtractDocumentTypeWithoutDefaults<Schema, TableName>
-> implements ReplaceManyBuilder<DataModel, TableName, Schema>
+    ServiceName
+  > = ExtractDocumentTypeWithoutDefaults<Schema, ServiceName>
+> implements ReplaceManyBuilder<DataModel, Schema, ServiceName>
 {
   constructor(
-    private ids: GenericId<TableName>[],
+    private ids: GenericId<ServiceName>[],
     private ctx: GenericMutationCtx<DataModel>,
     private schema: Schema
   ) {}
 
-  async many(documents: TInput[]): Promise<GenericId<TableName>[]> {
+  async many(documents: TInput[]): Promise<GenericId<ServiceName>[]> {
     // TODO: Apply validation and field hooks to each document
     if (documents.length !== this.ids.length) {
       throw new Error(
@@ -116,21 +118,22 @@ export class ReplaceManyBuilderImpl<
 
 export class ReplaceManyBuilderWithoutValidationImpl<
   DataModel extends GenericDataModel,
-  TableName extends TableNamesInDataModel<DataModel>,
-  Schema extends GenericServiceSchema = GenericServiceSchema,
-  TInput extends ExtractDocumentTypeWithoutDefaults<
+  Schema extends GenericServiceSchema,
+  ServiceName extends ServiceNamesInServiceSchema<Schema>,
+  TInput extends ExtractDocumentType<Schema, ServiceName> = ExtractDocumentType<
     Schema,
-    TableName
-  > = ExtractDocumentTypeWithoutDefaults<Schema, TableName>
-> implements ReplaceManyBuilderWithoutValidation<DataModel, TableName, Schema>
+    ServiceName
+  >
+> implements
+    ReplaceManyBuilderWithoutValidation<DataModel, Schema, ServiceName>
 {
   constructor(
-    private ids: GenericId<TableName>[],
+    private ids: GenericId<ServiceName>[],
     private ctx: GenericMutationCtx<DataModel>,
     private schema: Schema
   ) {}
 
-  async many(documents: TInput[]): Promise<GenericId<TableName>[]> {
+  async many(documents: TInput[]): Promise<GenericId<ServiceName>[]> {
     // Skip validation, replace directly
     if (documents.length !== this.ids.length) {
       throw new Error(

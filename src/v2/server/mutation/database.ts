@@ -9,7 +9,10 @@ import {
   type ExtractDocumentType,
   type ExtractDocumentTypeWithoutDefaults,
 } from './types'
-import { type GenericServiceSchema } from '../schema'
+import {
+  type GenericServiceSchema,
+  type ServiceNamesInServiceSchema,
+} from '../schema'
 import {
   InsertBuilderImpl,
   ReplaceOneBuilderImpl,
@@ -57,27 +60,27 @@ export class ServiceDatabaseWriterImpl<
     return this.ctx.db.system
   }
 
-  insert<TableName extends TableNamesInDataModel<DataModel>>(
-    tableName: TableName
+  insert<ServiceName extends ServiceNamesInServiceSchema<Schema>>(
+    serviceName: ServiceName
   ): InsertBuilderImpl<
     DataModel,
-    TableName,
     Schema,
-    ExtractDocumentTypeWithoutDefaults<Schema, TableName>,
-    ExtractDocumentType<Schema, TableName>
+    ServiceName,
+    ExtractDocumentTypeWithoutDefaults<Schema, ServiceName>,
+    ExtractDocumentType<Schema, ServiceName>
   > {
-    return new InsertBuilderImpl(tableName, this.ctx)
+    return new InsertBuilderImpl(serviceName, this.ctx)
   }
 
   // Override replace with overloads for single vs multiple IDs
-  replace<TableName extends TableNamesInDataModel<DataModel>>(
-    id: GenericId<TableName>
-  ): ReplaceOneBuilderImpl<DataModel, TableName, Schema>
-  replace<TableName extends TableNamesInDataModel<DataModel>>(
-    ids: GenericId<TableName>[]
-  ): ReplaceManyBuilderImpl<DataModel, TableName, Schema>
-  replace<TableName extends TableNamesInDataModel<DataModel>>(
-    idOrIds: GenericId<TableName> | GenericId<TableName>[]
+  replace<ServiceName extends ServiceNamesInServiceSchema<Schema>>(
+    id: GenericId<ServiceName>
+  ): ReplaceOneBuilderImpl<DataModel, Schema, ServiceName>
+  replace<ServiceName extends ServiceNamesInServiceSchema<Schema>>(
+    ids: GenericId<ServiceName>[]
+  ): ReplaceManyBuilderImpl<DataModel, Schema, ServiceName>
+  replace<ServiceName extends ServiceNamesInServiceSchema<Schema>>(
+    idOrIds: GenericId<ServiceName> | GenericId<ServiceName>[]
   ) {
     if (Array.isArray(idOrIds)) {
       return new ReplaceManyBuilderImpl(idOrIds, this.ctx, this.schema)
@@ -87,14 +90,14 @@ export class ServiceDatabaseWriterImpl<
   }
 
   // Override patch with overloads for single vs multiple IDs
-  patch<TableName extends TableNamesInDataModel<DataModel>>(
-    id: GenericId<TableName>
-  ): PatchOneBuilderImpl<DataModel, TableName, Schema>
-  patch<TableName extends TableNamesInDataModel<DataModel>>(
-    ids: GenericId<TableName>[]
-  ): PatchManyBuilderImpl<DataModel, TableName, Schema>
-  patch<TableName extends TableNamesInDataModel<DataModel>>(
-    idOrIds: GenericId<TableName> | GenericId<TableName>[]
+  patch<ServiceName extends ServiceNamesInServiceSchema<Schema>>(
+    id: GenericId<ServiceName>
+  ): PatchOneBuilderImpl<DataModel, Schema, ServiceName>
+  patch<ServiceName extends ServiceNamesInServiceSchema<Schema>>(
+    ids: GenericId<ServiceName>[]
+  ): PatchManyBuilderImpl<DataModel, Schema, ServiceName>
+  patch<ServiceName extends ServiceNamesInServiceSchema<Schema>>(
+    idOrIds: GenericId<ServiceName> | GenericId<ServiceName>[]
   ) {
     if (Array.isArray(idOrIds)) {
       return new PatchManyBuilderImpl(idOrIds, this.ctx, this.schema)
@@ -104,14 +107,14 @@ export class ServiceDatabaseWriterImpl<
   }
 
   // Override delete with overloads for single vs multiple IDs
-  delete<TableName extends TableNamesInDataModel<DataModel>>(
-    id: GenericId<TableName>
-  ): Promise<GenericId<TableName>>
-  delete<TableName extends TableNamesInDataModel<DataModel>>(
-    ids: GenericId<TableName>[]
-  ): Promise<GenericId<TableName>[]>
-  delete<TableName extends TableNamesInDataModel<DataModel>>(
-    idOrIds: GenericId<TableName> | GenericId<TableName>[]
+  delete<ServiceName extends ServiceNamesInServiceSchema<Schema>>(
+    id: GenericId<ServiceName>
+  ): Promise<GenericId<ServiceName>>
+  delete<ServiceName extends ServiceNamesInServiceSchema<Schema>>(
+    ids: GenericId<ServiceName>[]
+  ): Promise<GenericId<ServiceName>[]>
+  delete<ServiceName extends ServiceNamesInServiceSchema<Schema>>(
+    idOrIds: GenericId<ServiceName> | GenericId<ServiceName>[]
   ) {
     if (Array.isArray(idOrIds)) {
       return this.deleteOperations.deleteMany(idOrIds)

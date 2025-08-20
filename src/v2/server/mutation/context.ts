@@ -10,6 +10,7 @@ import {
 } from 'convex-helpers/server/customFunctions'
 import { type GenericServiceSchema } from '../schema'
 import { ServiceDatabaseWriterImpl } from './database'
+import type { GenericRegisteredService } from '../service'
 
 // Enhanced mutation context that replaces db with service-aware version
 export interface ServiceMutationCtx<
@@ -45,7 +46,7 @@ export type ServiceMutation<
 // Factory function to create service-aware mutations
 export function createServiceMutation<
   DataModel extends GenericDataModel,
-  Schema extends GenericServiceSchema = GenericServiceSchema
+  Schema extends GenericServiceSchema
 >(schema: Schema) {
   const mutation = customMutation(
     mutationGeneric,
@@ -66,7 +67,7 @@ export function createServiceMutation<
 // Helper function to create mutations with proper typing
 export function defineServiceMutation<
   DataModel extends GenericDataModel,
-  Schema extends GenericServiceSchema = GenericServiceSchema
+  Schema extends GenericServiceSchema
 >(schema: Schema) {
   return createServiceMutation<DataModel, Schema>(schema)
 }

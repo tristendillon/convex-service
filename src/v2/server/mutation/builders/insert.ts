@@ -10,34 +10,37 @@ import {
   type ExtractDocumentType,
   type ExtractDocumentTypeWithoutDefaults,
 } from '../types'
-import { type GenericServiceSchema } from '../../schema'
+import {
+  type GenericServiceSchema,
+  type ServiceNamesInServiceSchema,
+} from '../../schema'
 
 export class InsertBuilderImpl<
   DataModel extends GenericDataModel,
-  TableName extends TableNamesInDataModel<DataModel>,
-  Schema extends GenericServiceSchema = GenericServiceSchema,
+  Schema extends GenericServiceSchema,
+  ServiceName extends ServiceNamesInServiceSchema<Schema>,
   TInput extends ExtractDocumentTypeWithoutDefaults<
     Schema,
-    TableName
-  > = ExtractDocumentTypeWithoutDefaults<Schema, TableName>,
+    ServiceName
+  > = ExtractDocumentTypeWithoutDefaults<Schema, ServiceName>,
   TWithoutValidation extends ExtractDocumentType<
     Schema,
-    TableName
-  > = ExtractDocumentType<Schema, TableName>
+    ServiceName
+  > = ExtractDocumentType<Schema, ServiceName>
 > implements
-    InsertBuilder<DataModel, TableName, Schema, TInput, TWithoutValidation>
+    InsertBuilder<DataModel, Schema, ServiceName, TInput, TWithoutValidation>
 {
   constructor(
-    private tableName: TableName,
+    private tableName: ServiceName,
     private ctx: GenericMutationCtx<DataModel>
   ) {}
 
-  async one(document: TInput): Promise<GenericId<TableName>> {
+  async one(document: TInput): Promise<GenericId<ServiceName>> {
     // Apply validation with defaults
     return await this.ctx.db.insert(this.tableName, document as any)
   }
 
-  async many(documents: TInput[]): Promise<GenericId<TableName>[]> {
+  async many(documents: TInput[]): Promise<GenericId<ServiceName>[]> {
     // Apply validation with defaults to each document
     const results = await Promise.all(
       documents.map((doc) => this.ctx.db.insert(this.tableName, doc as any))
@@ -47,8 +50,8 @@ export class InsertBuilderImpl<
 
   withoutValidation(): InsertBuilderWithoutValidation<
     DataModel,
-    TableName,
     Schema,
+    ServiceName,
     TWithoutValidation
   > {
     return new InsertBuilderWithoutValidationImpl(this.tableName, this.ctx)
@@ -57,25 +60,25 @@ export class InsertBuilderImpl<
 
 export class InsertBuilderWithoutValidationImpl<
   DataModel extends GenericDataModel,
-  TableName extends TableNamesInDataModel<DataModel>,
-  Schema extends GenericServiceSchema = GenericServiceSchema,
-  TInput extends ExtractDocumentType<Schema, TableName> = ExtractDocumentType<
+  Schema extends GenericServiceSchema,
+  ServiceName extends ServiceNamesInServiceSchema<Schema>,
+  TInput extends ExtractDocumentType<Schema, ServiceName> = ExtractDocumentType<
     Schema,
-    TableName
+    ServiceName
   >
-> implements InsertBuilderWithoutValidation<DataModel, TableName, Schema>
+> implements InsertBuilderWithoutValidation<DataModel, Schema, ServiceName>
 {
   constructor(
-    private tableName: TableName,
+    private tableName: ServiceName,
     private ctx: GenericMutationCtx<DataModel>
   ) {}
 
-  async one(document: TInput): Promise<GenericId<TableName>> {
+  async one(document: TInput): Promise<GenericId<ServiceName>> {
     // Apply minimal validation without defaults
     return await this.ctx.db.insert(this.tableName, document as any)
   }
 
-  async many(documents: TInput[]): Promise<GenericId<TableName>[]> {
+  async many(documents: TInput[]): Promise<GenericId<ServiceName>[]> {
     // Apply minimal validation without defaults to each document
     const results = await Promise.all(
       documents.map((doc) => this.ctx.db.insert(this.tableName, doc as any))

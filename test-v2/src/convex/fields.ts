@@ -2,8 +2,8 @@ import { defineField } from '@lunarhue/convex-service/v2/server'
 import { zid } from '@lunarhue/convex-service/v2/server/zod'
 import { z } from 'zod/v4'
 
-export const emailField = defineField(z.email())
-export const profileIdField = defineField(zid('profile'))
+export const emailField = defineField(z.email()).unique()
+export const profileIdField = defineField(zid('profiles'))
 
 export const updatedAtField = defineField(
   z.number().default(() => Date.now())

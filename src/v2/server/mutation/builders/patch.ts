@@ -12,16 +12,19 @@ import {
   type GetZodSchemaFromService,
   type GetServiceFromSchemaAndTableName,
 } from '../types'
-import { type GenericServiceSchema } from '../../schema'
+import {
+  type GenericServiceSchema,
+  type ServiceNamesInServiceSchema,
+} from '../../schema'
 
 export class PatchOneBuilderImpl<
   DataModel extends GenericDataModel,
-  TableName extends TableNamesInDataModel<DataModel>,
-  Schema extends GenericServiceSchema = GenericServiceSchema
-> implements PatchOneBuilder<DataModel, TableName, Schema>
+  Schema extends GenericServiceSchema,
+  ServiceName extends ServiceNamesInServiceSchema<Schema>
+> implements PatchOneBuilder<DataModel, Schema, ServiceName>
 {
   constructor(
-    private id: GenericId<TableName>,
+    private id: GenericId<ServiceName>,
     private ctx: GenericMutationCtx<DataModel>,
     private schema: Schema
   ) {}
@@ -29,10 +32,10 @@ export class PatchOneBuilderImpl<
   async one(
     document: Partial<
       GetZodSchemaFromService<
-        GetServiceFromSchemaAndTableName<Schema, TableName>
+        GetServiceFromSchemaAndTableName<Schema, ServiceName>
       >
     >
-  ): Promise<GenericId<TableName>> {
+  ): Promise<GenericId<ServiceName>> {
     // TODO: Apply validation and field hooks
     await this.ctx.db.patch(this.id, document as any)
     return this.id
@@ -40,8 +43,8 @@ export class PatchOneBuilderImpl<
 
   withoutValidation(): PatchOneBuilderWithoutValidation<
     DataModel,
-    TableName,
-    Schema
+    Schema,
+    ServiceName
   > {
     return new PatchOneBuilderWithoutValidationImpl(
       this.id,
@@ -53,12 +56,12 @@ export class PatchOneBuilderImpl<
 
 export class PatchOneBuilderWithoutValidationImpl<
   DataModel extends GenericDataModel,
-  TableName extends TableNamesInDataModel<DataModel>,
-  Schema extends GenericServiceSchema = GenericServiceSchema
-> implements PatchOneBuilderWithoutValidation<DataModel, TableName, Schema>
+  Schema extends GenericServiceSchema,
+  ServiceName extends ServiceNamesInServiceSchema<Schema>
+> implements PatchOneBuilderWithoutValidation<DataModel, Schema, ServiceName>
 {
   constructor(
-    private id: GenericId<TableName>,
+    private id: GenericId<ServiceName>,
     private ctx: GenericMutationCtx<DataModel>,
     private schema: Schema
   ) {}
@@ -66,10 +69,10 @@ export class PatchOneBuilderWithoutValidationImpl<
   async one(
     document: Partial<
       GetZodSchemaFromService<
-        GetServiceFromSchemaAndTableName<Schema, TableName>
+        GetServiceFromSchemaAndTableName<Schema, ServiceName>
       >
     >
-  ): Promise<GenericId<TableName>> {
+  ): Promise<GenericId<ServiceName>> {
     // Skip validation, patch directly
     await this.ctx.db.patch(this.id, document as any)
     return this.id
@@ -78,12 +81,12 @@ export class PatchOneBuilderWithoutValidationImpl<
 
 export class PatchManyBuilderImpl<
   DataModel extends GenericDataModel,
-  TableName extends TableNamesInDataModel<DataModel>,
-  Schema extends GenericServiceSchema = GenericServiceSchema
-> implements PatchManyBuilder<DataModel, TableName, Schema>
+  Schema extends GenericServiceSchema,
+  ServiceName extends ServiceNamesInServiceSchema<Schema>
+> implements PatchManyBuilder<DataModel, Schema, ServiceName>
 {
   constructor(
-    private ids: GenericId<TableName>[],
+    private ids: GenericId<ServiceName>[],
     private ctx: GenericMutationCtx<DataModel>,
     private schema: Schema
   ) {}
@@ -91,10 +94,10 @@ export class PatchManyBuilderImpl<
   async many(
     documents: Partial<
       GetZodSchemaFromService<
-        GetServiceFromSchemaAndTableName<Schema, TableName>
+        GetServiceFromSchemaAndTableName<Schema, ServiceName>
       >
     >[]
-  ): Promise<GenericId<TableName>[]> {
+  ): Promise<GenericId<ServiceName>[]> {
     // TODO: Apply validation and field hooks to each document
     if (documents.length !== this.ids.length) {
       throw new Error(
@@ -112,8 +115,8 @@ export class PatchManyBuilderImpl<
 
   withoutValidation(): PatchManyBuilderWithoutValidation<
     DataModel,
-    TableName,
-    Schema
+    Schema,
+    ServiceName
   > {
     return new PatchManyBuilderWithoutValidationImpl(
       this.ids,
@@ -125,12 +128,12 @@ export class PatchManyBuilderImpl<
 
 export class PatchManyBuilderWithoutValidationImpl<
   DataModel extends GenericDataModel,
-  TableName extends TableNamesInDataModel<DataModel>,
-  Schema extends GenericServiceSchema = GenericServiceSchema
-> implements PatchManyBuilderWithoutValidation<DataModel, TableName, Schema>
+  Schema extends GenericServiceSchema,
+  ServiceName extends ServiceNamesInServiceSchema<Schema>
+> implements PatchManyBuilderWithoutValidation<DataModel, Schema, ServiceName>
 {
   constructor(
-    private ids: GenericId<TableName>[],
+    private ids: GenericId<ServiceName>[],
     private ctx: GenericMutationCtx<DataModel>,
     private schema: Schema
   ) {}
@@ -138,10 +141,10 @@ export class PatchManyBuilderWithoutValidationImpl<
   async many(
     documents: Partial<
       GetZodSchemaFromService<
-        GetServiceFromSchemaAndTableName<Schema, TableName>
+        GetServiceFromSchemaAndTableName<Schema, ServiceName>
       >
     >[]
-  ): Promise<GenericId<TableName>[]> {
+  ): Promise<GenericId<ServiceName>[]> {
     // Skip validation, patch directly
     if (documents.length !== this.ids.length) {
       throw new Error(

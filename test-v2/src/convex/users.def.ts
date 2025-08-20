@@ -38,9 +38,9 @@ fieldHooks.field('fullName').before(async ({ value, operation }) => {
 })
 
 export const [usersService, usersTable] = defineService({
-  email: emailField.unique(),
+  email: emailField,
   uuid: z.uuid().default(() => crypto.randomUUID()),
-  firstName: z.string(),
+  firstName: z.string().nullish(),
   lastName: z.string(),
   fullName: z.string().optional(),
   profileId: profileIdField,
