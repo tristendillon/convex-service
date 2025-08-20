@@ -1,20 +1,7 @@
-export {
-  InsertBuilderImpl,
-  InsertBuilderWithoutValidationImpl,
-} from './insert'
+export { InsertBuilderImpl } from './insert'
 
-export {
-  ReplaceOneBuilderImpl,
-  ReplaceOneBuilderWithoutValidationImpl,
-  ReplaceManyBuilderImpl,
-  ReplaceManyBuilderWithoutValidationImpl,
-} from './replace'
+export { ReplaceOneBuilderImpl, ReplaceManyBuilderImpl } from './replace'
 
-export {
-  PatchOneBuilderImpl,
-  PatchOneBuilderWithoutValidationImpl,
-  PatchManyBuilderImpl,
-  PatchManyBuilderWithoutValidationImpl,
-} from './patch'
+export { PatchOneBuilderImpl, PatchManyBuilderImpl } from './patch'
 
 export { DeleteOperations } from './delete'

@@ -23,7 +23,7 @@ export type ServiceOperation<
   Ctx extends GenericQueryCtx<GenericDataModel> = GenericQueryCtx<GenericDataModel>
 > = {
   value: Value
-  operation: 'insert' | 'update' | 'delete'
+  operation: 'insert' | 'update' | 'delete' | 'replace'
   ctx: ServiceOperationCtx<GenericDataModel, Ctx>
 }
 

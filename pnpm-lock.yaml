@@ -12,8 +12,8 @@ importers:
         specifier: ^1.25.4
         version: 1.25.4(react@19.1.1)
       convex-helpers:
-        specifier: https://pkg.pr.new/get-convex/convex-helpers@701
-        version: https://pkg.pr.new/get-convex/convex-helpers@701(@standard-schema/spec@1.0.0)(convex@1.25.4(react@19.1.1))(react@19.1.1)(typescript@5.8.3)(zod@3.25.76)
+        specifier: ^0.1.104
+        version: 0.1.104(@standard-schema/spec@1.0.0)(convex@1.25.4(react@19.1.1))(react@19.1.1)(typescript@5.8.3)(zod@3.25.76)
       zod:
         specifier: ^3.25.76
         version: 3.25.76
@@ -663,9 +663,8 @@ packages:
   confbox@0.1.8:
     resolution: {integrity: sha512-RMtmw0iFkeR4YV+fUOSucriAQNb9g8zFR52MWCtl+cCZOFRNL6zeB395vPzFhEjjn4fMxXudmELnl/KF/WrK6w==}
 
-  convex-helpers@https://pkg.pr.new/get-convex/convex-helpers@701:
-    resolution: {tarball: https://pkg.pr.new/get-convex/convex-helpers@701}
-    version: 0.1.101-alpha.1
+  convex-helpers@0.1.104:
+    resolution: {integrity: sha512-7CYvx7T3K6n+McDTK4ZQaQNNGBzq5aWezpjzsKbOxPXx7oNcTP9wrpef3JxeXWFzkByJv5hRCjseh9B7eNJ7Ig==}
     hasBin: true
     peerDependencies:
       '@standard-schema/spec': ^1.0.0
@@ -673,7 +672,7 @@ packages:
       hono: ^4.0.5
       react: ^17.0.2 || ^18.0.0 || ^19.0.0
       typescript: ^5.5
-      zod: ^3.22.4
+      zod: ^3.22.4 || ^4.0.15
     peerDependenciesMeta:
       '@standard-schema/spec':
         optional: true
@@ -1800,7 +1799,7 @@ snapshots:
 
   confbox@0.1.8: {}
 
-  convex-helpers@https://pkg.pr.new/get-convex/convex-helpers@701(@standard-schema/spec@1.0.0)(convex@1.25.4(react@19.1.1))(react@19.1.1)(typescript@5.8.3)(zod@3.25.76):
+  convex-helpers@0.1.104(@standard-schema/spec@1.0.0)(convex@1.25.4(react@19.1.1))(react@19.1.1)(typescript@5.8.3)(zod@3.25.76):
     dependencies:
       convex: 1.25.4(react@19.1.1)
     optionalDependencies:

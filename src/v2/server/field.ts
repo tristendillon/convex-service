@@ -1,5 +1,5 @@
 import * as z from 'zod/v4'
-import { ZodToConvex } from './zod/types'
+import { ZodToConvex } from './zod'
 import type { ServiceOperation } from './types'
 import type { Expand } from '../types'
 
@@ -71,10 +71,7 @@ export class ServiceField<
   private _zodValidator: ZodValidator
   private _state = {
     unique: false,
-    hooks: {
-      before: {},
-      after: {},
-    },
+    hooks: {} as ServiceFieldHooks<ZodValidator>,
   }
 
   constructor(zodValidator: ZodValidator) {
@@ -110,6 +107,10 @@ export class ServiceField<
 
   static isUnique(field: ServiceField): boolean {
     return field._state.unique
+  }
+
+  get fieldHooks(): ServiceFieldHooks<ZodValidator> {
+    return this._state.hooks
   }
 }
 

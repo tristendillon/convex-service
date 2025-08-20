@@ -1,32 +1,35 @@
-import {
-  GenericDataModel,
-  GenericMutationCtx,
-  TableNamesInDataModel,
-} from 'convex/server'
+import { GenericDataModel, GenericMutationCtx } from 'convex/server'
 import { GenericId } from 'convex/values'
-import { type GenericServiceSchema } from '../../schema'
+import {
+  type GenericServiceSchema,
+  type ServiceNamesInServiceSchema,
+} from '../../schema'
+import { OperationPipeline } from '../pipeline'
 
 export class DeleteOperations<
   DataModel extends GenericDataModel,
   Schema extends GenericServiceSchema = GenericServiceSchema
 > {
-  constructor(private ctx: GenericMutationCtx<DataModel>) {}
+  private pipeline: OperationPipeline<DataModel, Schema, any>
+  constructor(
+    private ctx: GenericMutationCtx<DataModel>,
+    private schema: Schema
+  ) {
+    this.pipeline = new OperationPipeline(undefined, this.ctx, this.schema)
+  }
 
   // Single ID delete
-  async deleteOne<TableName extends TableNamesInDataModel<DataModel>>(
-    id: GenericId<TableName>
-  ): Promise<GenericId<TableName>> {
-    // TODO: Apply service hooks and relation handling
-    await this.ctx.db.delete(id)
-    return id
+  async deleteOne<ServiceName extends ServiceNamesInServiceSchema<Schema>>(
+    id: GenericId<ServiceName>
+  ): Promise<GenericId<ServiceName>> {
+    return await this.pipeline.delete(id)
   }
 
   // Multiple ID delete
-  async deleteMany<TableName extends TableNamesInDataModel<DataModel>>(
-    ids: GenericId<TableName>[]
-  ): Promise<GenericId<TableName>[]> {
-    // TODO: Apply service hooks and relation handling to each
-    await Promise.all(ids.map((id) => this.ctx.db.delete(id)))
-    return ids
+  async deleteMany<ServiceName extends ServiceNamesInServiceSchema<Schema>>(
+    ids: GenericId<ServiceName>[]
+  ): Promise<GenericId<ServiceName>[]> {
+    if (ids.length === 0) return []
+    return await this.pipeline.deleteMany(ids)
   }
 }

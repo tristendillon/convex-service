@@ -17,6 +17,7 @@ import {
   ServiceFieldsToConvex,
   createZodSchemaFromFields,
   defineField,
+  type CreateZodSchemaFromFields,
 } from './field'
 import { zodToConvex } from './zod'
 import type { GenericFieldHooks, GenericServiceHooks } from './hooks'
@@ -68,6 +69,14 @@ type ServiceValidators<Fields extends GenericFields> = {
   validator: ServiceFieldsToConvex<Fields>
   withoutDefaults: GenericValidator
   withDefaults: GenericValidator
+}
+
+// Without defaults will remove the defaults from the schema entirely as to not create default values from the parsing
+// This means that if you have a test: z.string().default("test") and then you use the withoutDefaults schema to parse it,
+// then the object at test: will be undefined since our schema doesnt have a default to parse to, but if you use the withDefaults schema to parse it, then the object at test: will be "test"
+type ServiceSchemas<Fields extends GenericFields> = {
+  withDefaults: CreateZodSchemaFromFields<Fields>
+  withoutDefaults: z.ZodType
 }
 
 type CompositeUnique<Fields extends GenericFields> = {
@@ -183,6 +192,7 @@ export type GenericRegisteredService = RegisteredService<any>
 export interface RegisteredService<Fields extends GenericFields> {
   fields: Fields
   validators: ServiceValidators<Fields>
+  schemas: ServiceSchemas<Fields>
   name: string
   $indexStrategies: IndexStrategies<Fields>
   $state: ServiceState<Fields>
@@ -215,8 +225,11 @@ export class Service<
     vectorIndexes: [],
   }
   private _fields: Fields = {} as Fields
-  private _zodSchema: z.ZodType
   private _name: string = ''
+  private _schemas: ServiceSchemas<Fields> = {
+    withDefaults: {} as CreateZodSchemaFromFields<Fields>,
+    withoutDefaults: {} as z.ZodType,
+  }
 
   constructor(fields: Fields) {
     this._fields = Object.entries(fields).reduce((acc, [key, value]) => {
@@ -228,9 +241,10 @@ export class Service<
       return acc
     }, {} as AnyServiceFields) as Fields
 
-    this._zodSchema = createZodSchemaFromFields(this._fields)
+    this._schemas.withDefaults = createZodSchemaFromFields(this._fields)
+    this._schemas.withoutDefaults = this._schemas.withDefaults
     this._state.validators.validator = zodToConvex(
-      this._zodSchema
+      this._schemas.withDefaults
     ) as unknown as ServiceFieldsToConvex<Fields>
   }
 
@@ -392,6 +406,7 @@ export class Service<
     const service: RegisteredService<Fields> = {
       fields: this._fields,
       validators: this._state.validators,
+      schemas: this._schemas,
       name: this._name,
       $indexStrategies: this._indexStrategies,
       $state: this._state,

@@ -31,6 +31,7 @@
   "license": "MIT",
   "peerDependencies": {
     "convex": "^1.25.4",
+    "convex-helpers": "^0.1.104",
     "zod": "^3.25.76"
   },
   "devDependencies": {
@@ -48,8 +49,5 @@
   ],
   "publishConfig": {
     "access": "public"
-  },
-  "dependencies": {
-    "convex-helpers": "https://pkg.pr.new/get-convex/convex-helpers@701"
   }
 }

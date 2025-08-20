@@ -12,16 +12,16 @@ const fieldHooks = createFieldHooks<DataModel, 'users'>()
 const rls = createRlsRules<DataModel, 'users'>()
 const serviceHooks = createServiceHooks<DataModel, 'users'>()
 
-rls.rule('insert', async ({ doc, ctx }) => {
+rls.rule('insert', async () => {
   return true
 })
-rls.rule('update', async ({ doc, ctx }) => {
+rls.rule('update', async () => {
   return true
 })
-rls.rule('delete', async ({ doc, ctx }) => {
+rls.rule('delete', async () => {
   return true
 })
-rls.rule('read', async ({ doc, ctx }) => {
+rls.rule('read', async () => {
   return true
 })
 
@@ -39,8 +39,11 @@ fieldHooks.field('fullName').before(async ({ value, operation }) => {
 
 export const [usersService, usersTable] = defineService({
   email: emailField,
-  uuid: z.uuid().default(() => crypto.randomUUID()),
-  firstName: z.string().nullish(),
+  // we have to use guid since zod throws a parsing error when using uuid even though it's a valid uuid. So we use
+  // guid instead since it looks for uuid like strings rather than rfc 9562
+  // idk what this problem stems from lol but its a bug.
+  uuid: z.guid().default(() => crypto.randomUUID()),
+  firstName: z.string(),
   lastName: z.string(),
   fullName: z.string().optional(),
   profileId: profileIdField,

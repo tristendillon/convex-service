@@ -1,162 +1,72 @@
-import {
-  GenericDataModel,
-  GenericMutationCtx,
-  TableNamesInDataModel,
-} from 'convex/server'
+import { GenericDataModel, GenericMutationCtx } from 'convex/server'
 import { GenericId } from 'convex/values'
 import {
   PatchOneBuilder,
-  PatchOneBuilderWithoutValidation,
   PatchManyBuilder,
-  PatchManyBuilderWithoutValidation,
   type GetZodSchemaFromService,
   type GetServiceFromSchemaAndTableName,
+  type ExtractDocumentTypeWithoutDefaults,
 } from '../types'
 import {
   type GenericServiceSchema,
   type ServiceNamesInServiceSchema,
 } from '../../schema'
+import { OperationPipeline } from '../pipeline'
 
 export class PatchOneBuilderImpl<
   DataModel extends GenericDataModel,
   Schema extends GenericServiceSchema,
-  ServiceName extends ServiceNamesInServiceSchema<Schema>
-> implements PatchOneBuilder<DataModel, Schema, ServiceName>
-{
-  constructor(
-    private id: GenericId<ServiceName>,
-    private ctx: GenericMutationCtx<DataModel>,
-    private schema: Schema
-  ) {}
-
-  async one(
-    document: Partial<
-      GetZodSchemaFromService<
-        GetServiceFromSchemaAndTableName<Schema, ServiceName>
-      >
-    >
-  ): Promise<GenericId<ServiceName>> {
-    // TODO: Apply validation and field hooks
-    await this.ctx.db.patch(this.id, document as any)
-    return this.id
-  }
-
-  withoutValidation(): PatchOneBuilderWithoutValidation<
-    DataModel,
+  ServiceName extends ServiceNamesInServiceSchema<Schema>,
+  TInput extends ExtractDocumentTypeWithoutDefaults<
     Schema,
     ServiceName
-  > {
-    return new PatchOneBuilderWithoutValidationImpl(
-      this.id,
-      this.ctx,
-      this.schema
-    )
-  }
-}
-
-export class PatchOneBuilderWithoutValidationImpl<
-  DataModel extends GenericDataModel,
-  Schema extends GenericServiceSchema,
-  ServiceName extends ServiceNamesInServiceSchema<Schema>
-> implements PatchOneBuilderWithoutValidation<DataModel, Schema, ServiceName>
+  > = ExtractDocumentTypeWithoutDefaults<Schema, ServiceName>
+> implements PatchOneBuilder<Schema, ServiceName>
 {
+  private pipeline: OperationPipeline<DataModel, Schema, ServiceName>
+
   constructor(
     private id: GenericId<ServiceName>,
-    private ctx: GenericMutationCtx<DataModel>,
-    private schema: Schema
-  ) {}
+    ctx: GenericMutationCtx<DataModel>,
+    schema: Schema
+  ) {
+    this.pipeline = new OperationPipeline(
+      undefined as unknown as ServiceName,
+      ctx,
+      schema
+    )
+  }
 
-  async one(
-    document: Partial<
-      GetZodSchemaFromService<
-        GetServiceFromSchemaAndTableName<Schema, ServiceName>
-      >
-    >
-  ): Promise<GenericId<ServiceName>> {
-    // Skip validation, patch directly
-    await this.ctx.db.patch(this.id, document as any)
-    return this.id
+  async one(document: Partial<TInput>): Promise<GenericId<ServiceName>> {
+    return await this.pipeline.patch(this.id, document)
   }
 }
 
 export class PatchManyBuilderImpl<
   DataModel extends GenericDataModel,
   Schema extends GenericServiceSchema,
-  ServiceName extends ServiceNamesInServiceSchema<Schema>
-> implements PatchManyBuilder<DataModel, Schema, ServiceName>
-{
-  constructor(
-    private ids: GenericId<ServiceName>[],
-    private ctx: GenericMutationCtx<DataModel>,
-    private schema: Schema
-  ) {}
-
-  async many(
-    documents: Partial<
-      GetZodSchemaFromService<
-        GetServiceFromSchemaAndTableName<Schema, ServiceName>
-      >
-    >[]
-  ): Promise<GenericId<ServiceName>[]> {
-    // TODO: Apply validation and field hooks to each document
-    if (documents.length !== this.ids.length) {
-      throw new Error(
-        `Document count (${documents.length}) must match ID count (${this.ids.length})`
-      )
-    }
-
-    await Promise.all(
-      this.ids.map((id, index) =>
-        this.ctx.db.patch(id, documents[index] as any)
-      )
-    )
-    return this.ids
-  }
-
-  withoutValidation(): PatchManyBuilderWithoutValidation<
-    DataModel,
+  ServiceName extends ServiceNamesInServiceSchema<Schema>,
+  TInput extends ExtractDocumentTypeWithoutDefaults<
     Schema,
     ServiceName
-  > {
-    return new PatchManyBuilderWithoutValidationImpl(
-      this.ids,
-      this.ctx,
-      this.schema
-    )
-  }
-}
-
-export class PatchManyBuilderWithoutValidationImpl<
-  DataModel extends GenericDataModel,
-  Schema extends GenericServiceSchema,
-  ServiceName extends ServiceNamesInServiceSchema<Schema>
-> implements PatchManyBuilderWithoutValidation<DataModel, Schema, ServiceName>
+  > = ExtractDocumentTypeWithoutDefaults<Schema, ServiceName>
+> implements PatchManyBuilder<Schema, ServiceName>
 {
+  private pipeline: OperationPipeline<DataModel, Schema, ServiceName>
+
   constructor(
     private ids: GenericId<ServiceName>[],
-    private ctx: GenericMutationCtx<DataModel>,
-    private schema: Schema
-  ) {}
-
-  async many(
-    documents: Partial<
-      GetZodSchemaFromService<
-        GetServiceFromSchemaAndTableName<Schema, ServiceName>
-      >
-    >[]
-  ): Promise<GenericId<ServiceName>[]> {
-    // Skip validation, patch directly
-    if (documents.length !== this.ids.length) {
-      throw new Error(
-        `Document count (${documents.length}) must match ID count (${this.ids.length})`
-      )
-    }
-
-    await Promise.all(
-      this.ids.map((id, index) =>
-        this.ctx.db.patch(id, documents[index] as any)
-      )
+    ctx: GenericMutationCtx<DataModel>,
+    schema: Schema
+  ) {
+    this.pipeline = new OperationPipeline(
+      undefined as unknown as ServiceName,
+      ctx,
+      schema
     )
-    return this.ids
+  }
+
+  async many(documents: Partial<TInput>[]): Promise<GenericId<ServiceName>[]> {
+    return await this.pipeline.patchMany(this.ids, documents)
   }
 }

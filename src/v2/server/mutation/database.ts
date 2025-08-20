@@ -4,11 +4,7 @@ import {
   TableNamesInDataModel,
 } from 'convex/server'
 import { GenericId } from 'convex/values'
-import {
-  ServiceDatabaseWriter,
-  type ExtractDocumentType,
-  type ExtractDocumentTypeWithoutDefaults,
-} from './types'
+import { ServiceDatabaseWriter } from './types'
 import {
   type GenericServiceSchema,
   type ServiceNamesInServiceSchema,
@@ -33,7 +29,7 @@ export class ServiceDatabaseWriterImpl<
     private ctx: GenericMutationCtx<DataModel>,
     private schema: Schema
   ) {
-    this.deleteOperations = new DeleteOperations(this.ctx)
+    this.deleteOperations = new DeleteOperations(this.ctx, this.schema)
   }
 
   // Delegate all read operations to the original database reader
@@ -62,14 +58,8 @@ export class ServiceDatabaseWriterImpl<
 
   insert<ServiceName extends ServiceNamesInServiceSchema<Schema>>(
     serviceName: ServiceName
-  ): InsertBuilderImpl<
-    DataModel,
-    Schema,
-    ServiceName,
-    ExtractDocumentTypeWithoutDefaults<Schema, ServiceName>,
-    ExtractDocumentType<Schema, ServiceName>
-  > {
-    return new InsertBuilderImpl(serviceName, this.ctx)
+  ): InsertBuilderImpl<DataModel, Schema, ServiceName> {
+    return new InsertBuilderImpl(serviceName, this.ctx, this.schema)
   }
 
   // Override replace with overloads for single vs multiple IDs
@@ -89,6 +79,15 @@ export class ServiceDatabaseWriterImpl<
     }
   }
 
+  private getServiceNameFromId<
+    ServiceName extends ServiceNamesInServiceSchema<Schema>
+  >(id: GenericId<ServiceName>): ServiceName {
+    // This is a hack - in practice we'd need to determine the service name from the ID
+    // For now, we'll try to extract it from the ID string or find another way
+    // This is a limitation we'll need to address properly
+    return id.split(':')[0] as ServiceName
+  }
+
   // Override patch with overloads for single vs multiple IDs
   patch<ServiceName extends ServiceNamesInServiceSchema<Schema>>(
     id: GenericId<ServiceName>
@@ -100,8 +99,10 @@ export class ServiceDatabaseWriterImpl<
     idOrIds: GenericId<ServiceName> | GenericId<ServiceName>[]
   ) {
     if (Array.isArray(idOrIds)) {
+      const serviceName = this.getServiceNameFromId(idOrIds[0])
       return new PatchManyBuilderImpl(idOrIds, this.ctx, this.schema)
     } else {
+      const serviceName = this.getServiceNameFromId(idOrIds)
       return new PatchOneBuilderImpl(idOrIds, this.ctx, this.schema)
     }
   }

@@ -13,194 +13,92 @@ import type { CreateZodSchemaFromFields } from '../field'
 import type { GenericRegisteredService } from '../service'
 
 export interface InsertBuilder<
-  DataModel extends GenericDataModel,
   Schema extends GenericServiceSchema = GenericServiceSchema,
   ServiceName extends ServiceNamesInServiceSchema<Schema> = ServiceNamesInServiceSchema<Schema>,
   TInput extends ExtractDocumentTypeWithoutDefaults<
     Schema,
     ServiceName
-  > = ExtractDocumentTypeWithoutDefaults<Schema, ServiceName>,
-  TWithoutValidation extends ExtractDocumentType<
-    Schema,
-    ServiceName
-  > = ExtractDocumentType<Schema, ServiceName>
-> {
-  one(document: TInput): Promise<GenericId<ServiceName>>
-  many(documents: TInput[]): Promise<GenericId<ServiceName>[]>
-  withoutValidation(): InsertBuilderWithoutValidation<
-    DataModel,
-    Schema,
-    ServiceName,
-    TWithoutValidation
-  >
-}
-
-export interface InsertBuilderWithoutValidation<
-  DataModel extends GenericDataModel,
-  Schema extends GenericServiceSchema = GenericServiceSchema,
-  ServiceName extends ServiceNamesInServiceSchema<Schema> = ServiceNamesInServiceSchema<Schema>,
-  TInput extends ExtractDocumentType<Schema, ServiceName> = ExtractDocumentType<
-    Schema,
-    ServiceName
-  >
+  > = ExtractDocumentTypeWithoutDefaults<Schema, ServiceName>
 > {
   one(document: TInput): Promise<GenericId<ServiceName>>
   many(documents: TInput[]): Promise<GenericId<ServiceName>[]>
 }
 
 export interface ReplaceOneBuilder<
-  DataModel extends GenericDataModel,
   Schema extends GenericServiceSchema = GenericServiceSchema,
   ServiceName extends ServiceNamesInServiceSchema<Schema> = ServiceNamesInServiceSchema<Schema>,
   TInput extends ExtractDocumentTypeWithoutDefaults<
     Schema,
     ServiceName
   > = ExtractDocumentTypeWithoutDefaults<Schema, ServiceName>
-> {
-  one(document: TInput): Promise<GenericId<ServiceName>>
-  withoutValidation(): ReplaceOneBuilderWithoutValidation<
-    DataModel,
-    Schema,
-    ServiceName,
-    ExtractDocumentType<Schema, ServiceName>
-  >
-}
-
-export interface ReplaceOneBuilderWithoutValidation<
-  DataModel extends GenericDataModel,
-  Schema extends GenericServiceSchema = GenericServiceSchema,
-  ServiceName extends ServiceNamesInServiceSchema<Schema> = ServiceNamesInServiceSchema<Schema>,
-  TInput extends ExtractDocumentType<Schema, ServiceName> = ExtractDocumentType<
-    Schema,
-    ServiceName
-  >
 > {
   one(document: TInput): Promise<GenericId<ServiceName>>
 }
 
 export interface ReplaceManyBuilder<
-  DataModel extends GenericDataModel,
   Schema extends GenericServiceSchema = GenericServiceSchema,
   ServiceName extends ServiceNamesInServiceSchema<Schema> = ServiceNamesInServiceSchema<Schema>,
   TInput extends ExtractDocumentTypeWithoutDefaults<
     Schema,
     ServiceName
   > = ExtractDocumentTypeWithoutDefaults<Schema, ServiceName>
-> {
-  many(documents: TInput[]): Promise<GenericId<ServiceName>[]>
-  withoutValidation(): ReplaceManyBuilderWithoutValidation<
-    DataModel,
-    Schema,
-    ServiceName,
-    ExtractDocumentType<Schema, ServiceName>
-  >
-}
-
-export interface ReplaceManyBuilderWithoutValidation<
-  DataModel extends GenericDataModel,
-  Schema extends GenericServiceSchema = GenericServiceSchema,
-  ServiceName extends ServiceNamesInServiceSchema<Schema> = ServiceNamesInServiceSchema<Schema>,
-  TInput extends ExtractDocumentType<Schema, ServiceName> = ExtractDocumentType<
-    Schema,
-    ServiceName
-  >
 > {
   many(documents: TInput[]): Promise<GenericId<ServiceName>[]>
 }
 
 export interface PatchOneBuilder<
-  DataModel extends GenericDataModel,
   Schema extends GenericServiceSchema = GenericServiceSchema,
   ServiceName extends ServiceNamesInServiceSchema<Schema> = ServiceNamesInServiceSchema<Schema>,
   TInput extends ExtractDocumentTypeWithoutDefaults<
     Schema,
     ServiceName
   > = ExtractDocumentTypeWithoutDefaults<Schema, ServiceName>
-> {
-  one(document: Partial<TInput>): Promise<GenericId<ServiceName>>
-  withoutValidation(): PatchOneBuilderWithoutValidation<
-    DataModel,
-    Schema,
-    ServiceName,
-    ExtractDocumentType<Schema, ServiceName>
-  >
-}
-
-export interface PatchOneBuilderWithoutValidation<
-  DataModel extends GenericDataModel,
-  Schema extends GenericServiceSchema = GenericServiceSchema,
-  ServiceName extends ServiceNamesInServiceSchema<Schema> = ServiceNamesInServiceSchema<Schema>,
-  TInput extends ExtractDocumentType<Schema, ServiceName> = ExtractDocumentType<
-    Schema,
-    ServiceName
-  >
 > {
   one(document: Partial<TInput>): Promise<GenericId<ServiceName>>
 }
 
 export interface PatchManyBuilder<
-  DataModel extends GenericDataModel,
   Schema extends GenericServiceSchema = GenericServiceSchema,
   ServiceName extends ServiceNamesInServiceSchema<Schema> = ServiceNamesInServiceSchema<Schema>,
   TInput extends ExtractDocumentTypeWithoutDefaults<
     Schema,
     ServiceName
   > = ExtractDocumentTypeWithoutDefaults<Schema, ServiceName>
-> {
-  many(documents: Partial<TInput>[]): Promise<GenericId<ServiceName>[]>
-  withoutValidation(): PatchManyBuilderWithoutValidation<
-    DataModel,
-    Schema,
-    ServiceName,
-    ExtractDocumentType<Schema, ServiceName>
-  >
-}
-
-export interface PatchManyBuilderWithoutValidation<
-  DataModel extends GenericDataModel,
-  Schema extends GenericServiceSchema = GenericServiceSchema,
-  ServiceName extends ServiceNamesInServiceSchema<Schema> = ServiceNamesInServiceSchema<Schema>,
-  TInput extends ExtractDocumentType<Schema, ServiceName> = ExtractDocumentType<
-    Schema,
-    ServiceName
-  >
 > {
   many(documents: Partial<TInput>[]): Promise<GenericId<ServiceName>[]>
 }
 
 // Main database interface that overrides Convex methods
 export interface ServiceDatabaseWriter<
-  DataModel extends GenericDataModel,
+  DataModel extends GenericDataModel = GenericDataModel,
   Schema extends GenericServiceSchema = GenericServiceSchema
 > extends GenericDatabaseReader<DataModel> {
   // Override insert - returns builder instead of Promise
   insert<ServiceName extends ServiceNamesInServiceSchema<Schema>>(
     serviceName: ServiceName
   ): InsertBuilder<
-    DataModel,
     Schema,
     ServiceName,
-    ExtractDocumentTypeWithoutDefaults<Schema, ServiceName>,
-    ExtractDocumentType<Schema, ServiceName>
+    ExtractDocumentTypeWithoutDefaults<Schema, ServiceName>
   >
 
   // Override replace - returns builder based on ID type
   replace<ServiceName extends ServiceNamesInServiceSchema<Schema>>(
     id: GenericId<ServiceName>
-  ): ReplaceOneBuilder<DataModel, Schema, ServiceName>
+  ): ReplaceOneBuilder<Schema, ServiceName>
 
   replace<ServiceName extends ServiceNamesInServiceSchema<Schema>>(
     ids: GenericId<ServiceName>[]
-  ): ReplaceManyBuilder<DataModel, Schema, ServiceName>
+  ): ReplaceManyBuilder<Schema, ServiceName>
 
   // Override patch - returns builder based on ID type
   patch<ServiceName extends ServiceNamesInServiceSchema<Schema>>(
     id: GenericId<ServiceName>
-  ): PatchOneBuilder<DataModel, Schema, ServiceName>
+  ): PatchOneBuilder<Schema, ServiceName>
 
   patch<ServiceName extends ServiceNamesInServiceSchema<Schema>>(
     ids: GenericId<ServiceName>[]
-  ): PatchManyBuilder<DataModel, Schema, ServiceName>
+  ): PatchManyBuilder<Schema, ServiceName>
 
   // Override delete - directly executable based on ID type
   delete<ServiceName extends ServiceNamesInServiceSchema<Schema>>(

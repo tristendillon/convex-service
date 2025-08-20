@@ -42,23 +42,48 @@ export class FieldHooks<
           TableName,
           Fields[K]
         >['before']
-      ) => ({
-        after: (
-          afterHook: HookDefinitionFromDataModel<DataModel, TableName>['after']
-        ) => this.addHook(fieldName, { before: hook, after: afterHook }),
-      }),
+      ) => {
+        // Get existing hook or create new one
+        const existing = this.hooks.get(fieldName) || {}
+        this.addHook(fieldName, {
+          ...existing,
+          before: hook,
+        })
+
+        return {
+          after: (
+            afterHook: HookDefinitionFromDataModel<
+              DataModel,
+              TableName
+            >['after']
+          ) => this.addHook(fieldName, { before: hook, after: afterHook }),
+        }
+      },
       after: (
         hook: HookDefinitionFromDataModel<DataModel, TableName>['after']
-      ) => ({
-        before: (
-          beforeHook: HookDefinitionFromDataModel<
-            DataModel,
-            TableName,
-            Fields[K]
-          >['before']
-        ) => this.addHook(fieldName, { before: beforeHook, after: hook }),
-      }),
+      ) => {
+        // Get existing hook or create new one
+        const existing = this.hooks.get(fieldName) || {}
+        this.addHook(fieldName, { ...existing, after: hook })
+
+        return {
+          before: (
+            beforeHook: HookDefinitionFromDataModel<
+              DataModel,
+              TableName,
+              Fields[K]
+            >['before']
+          ) => this.addHook(fieldName, { before: beforeHook, after: hook }),
+        }
+      },
     }
+  }
+
+  get fieldHooks(): Map<
+    keyof Fields & string,
+    FieldHookFromDataModel<DataModel, TableName, Fields>
+  > {
+    return this.hooks
   }
 
   static getFieldHooks<

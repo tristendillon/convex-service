@@ -11,10 +11,10 @@ export type HookDefinitionFromDataModel<
   TableName extends TableNamesInDataModel<DataModel>,
   FieldType = any
 > = {
-  before: (
+  before?: (
     operation: ServiceOperationByDataModel<DataModel, TableName>
   ) => Promise<FieldType> | FieldType
-  after: (
+  after?: (
     operation: ServiceOperationByDataModel<
       DataModel,
       TableName,

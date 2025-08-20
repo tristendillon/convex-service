@@ -16,16 +16,17 @@ export const updatedAtField = defineField(
   })
 })
 
-export const updatedByField = defineField(zid('users').optional()).hooks(
+export const updatedByField = defineField(zid('users').nullish()).hooks(
   (hooks) => {
     hooks.before(async ({ ctx }) => {
       const identity = await ctx.auth.getUserIdentity()
       const userId = identity?.subject
+      console.log('[updatedBy beforeHook] userId', userId)
       if (userId) {
         const user = ctx.db.normalizeId('users', userId)
-        return user ?? undefined
+        return user
       }
-      return undefined
+      return null
     })
   }
 )
