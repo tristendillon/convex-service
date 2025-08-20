@@ -10,6 +10,7 @@ import {
   type ServiceNamesInServiceSchema,
 } from '../../schema'
 import { OperationPipeline } from '../pipeline'
+import type { PipelineConfig } from '../pipeline/types'
 
 export class ReplaceOneBuilderImpl<
   DataModel extends GenericDataModel,
@@ -35,8 +36,8 @@ export class ReplaceOneBuilderImpl<
     )
   }
 
-  async one(document: TInput): Promise<GenericId<ServiceName>> {
-    return await this.pipeline.replace(this.id, document)
+  async one(document: TInput, config?: Partial<PipelineConfig>): Promise<GenericId<ServiceName>> {
+    return await this.pipeline.replace(this.id, document, config)
   }
 }
 
@@ -64,7 +65,7 @@ export class ReplaceManyBuilderImpl<
     )
   }
 
-  async many(documents: TInput[]): Promise<GenericId<ServiceName>[]> {
-    return await this.pipeline.replaceMany(this.ids, documents)
+  async many(documents: TInput[], config?: Partial<PipelineConfig>): Promise<GenericId<ServiceName>[]> {
+    return await this.pipeline.replaceMany(this.ids, documents, config)
   }
 }

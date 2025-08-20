@@ -1,5 +1,5 @@
 import { defineField } from '@lunarhue/convex-service/v2/server'
-import { zid } from '@lunarhue/convex-service/v2/server/zod'
+import { zid } from '@lunarhue/convex-service/v2/server'
 import { z } from 'zod/v4'
 
 export const emailField = defineField(z.email()).unique()

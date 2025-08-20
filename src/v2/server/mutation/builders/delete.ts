@@ -5,6 +5,7 @@ import {
   type ServiceNamesInServiceSchema,
 } from '../../schema'
 import { OperationPipeline } from '../pipeline'
+import type { PipelineConfig } from '../pipeline/types'
 
 export class DeleteOperations<
   DataModel extends GenericDataModel,
@@ -20,16 +21,18 @@ export class DeleteOperations<
 
   // Single ID delete
   async deleteOne<ServiceName extends ServiceNamesInServiceSchema<Schema>>(
-    id: GenericId<ServiceName>
+    id: GenericId<ServiceName>,
+    config?: Partial<PipelineConfig>
   ): Promise<GenericId<ServiceName>> {
-    return await this.pipeline.delete(id)
+    return await this.pipeline.delete(id, config)
   }
 
   // Multiple ID delete
   async deleteMany<ServiceName extends ServiceNamesInServiceSchema<Schema>>(
-    ids: GenericId<ServiceName>[]
+    ids: GenericId<ServiceName>[],
+    config?: Partial<PipelineConfig>
   ): Promise<GenericId<ServiceName>[]> {
     if (ids.length === 0) return []
-    return await this.pipeline.deleteMany(ids)
+    return await this.pipeline.deleteMany(ids, config)
   }
 }

@@ -11,6 +11,7 @@ import {
 import * as z from 'zod/v4'
 import type { CreateZodSchemaFromFields } from '../field'
 import type { GenericRegisteredService } from '../service'
+import type { PipelineConfig } from './pipeline/types'
 
 export interface InsertBuilder<
   Schema extends GenericServiceSchema = GenericServiceSchema,
@@ -20,8 +21,8 @@ export interface InsertBuilder<
     ServiceName
   > = ExtractDocumentTypeWithoutDefaults<Schema, ServiceName>
 > {
-  one(document: TInput): Promise<GenericId<ServiceName>>
-  many(documents: TInput[]): Promise<GenericId<ServiceName>[]>
+  one(document: TInput, config?: Partial<PipelineConfig>): Promise<GenericId<ServiceName>>
+  many(documents: TInput[], config?: Partial<PipelineConfig>): Promise<GenericId<ServiceName>[]>
 }
 
 export interface ReplaceOneBuilder<
@@ -32,7 +33,7 @@ export interface ReplaceOneBuilder<
     ServiceName
   > = ExtractDocumentTypeWithoutDefaults<Schema, ServiceName>
 > {
-  one(document: TInput): Promise<GenericId<ServiceName>>
+  one(document: TInput, config?: Partial<PipelineConfig>): Promise<GenericId<ServiceName>>
 }
 
 export interface ReplaceManyBuilder<
@@ -43,7 +44,7 @@ export interface ReplaceManyBuilder<
     ServiceName
   > = ExtractDocumentTypeWithoutDefaults<Schema, ServiceName>
 > {
-  many(documents: TInput[]): Promise<GenericId<ServiceName>[]>
+  many(documents: TInput[], config?: Partial<PipelineConfig>): Promise<GenericId<ServiceName>[]>
 }
 
 export interface PatchOneBuilder<
@@ -54,7 +55,7 @@ export interface PatchOneBuilder<
     ServiceName
   > = ExtractDocumentTypeWithoutDefaults<Schema, ServiceName>
 > {
-  one(document: Partial<TInput>): Promise<GenericId<ServiceName>>
+  one(document: Partial<TInput>, config?: Partial<PipelineConfig>): Promise<GenericId<ServiceName>>
 }
 
 export interface PatchManyBuilder<
@@ -65,7 +66,7 @@ export interface PatchManyBuilder<
     ServiceName
   > = ExtractDocumentTypeWithoutDefaults<Schema, ServiceName>
 > {
-  many(documents: Partial<TInput>[]): Promise<GenericId<ServiceName>[]>
+  many(documents: Partial<TInput>[], config?: Partial<PipelineConfig>): Promise<GenericId<ServiceName>[]>
 }
 
 // Main database interface that overrides Convex methods
@@ -102,11 +103,13 @@ export interface ServiceDatabaseWriter<
 
   // Override delete - directly executable based on ID type
   delete<ServiceName extends ServiceNamesInServiceSchema<Schema>>(
-    id: GenericId<ServiceName>
+    id: GenericId<ServiceName>,
+    config?: Partial<PipelineConfig>
   ): Promise<GenericId<ServiceName>>
 
   delete<ServiceName extends ServiceNamesInServiceSchema<Schema>>(
-    ids: GenericId<ServiceName>[]
+    ids: GenericId<ServiceName>[],
+    config?: Partial<PipelineConfig>
   ): Promise<GenericId<ServiceName>[]>
 }
 

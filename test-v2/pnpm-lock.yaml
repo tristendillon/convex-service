@@ -10,10 +10,13 @@ importers:
     dependencies:
       '@lunarhue/convex-service':
         specifier: file:../
-        version: file:..(convex-helpers@0.1.101-alpha.1(convex@1.25.4)(typescript@5.9.2)(zod@3.25.76))(convex@1.25.4)(zod@3.25.76)
+        version: file:..(convex-helpers@0.1.104(convex@1.25.4)(typescript@5.9.2)(zod@3.25.76))(convex@1.25.4)(zod@3.25.76)
       convex:
         specifier: ^1.25.4
         version: 1.25.4
+      convex-helpers:
+        specifier: ^0.1.104
+        version: 0.1.104(convex@1.25.4)(typescript@5.9.2)(zod@3.25.76)
     devDependencies:
       '@edge-runtime/vm':
         specifier: ^5.0.0
@@ -583,8 +586,8 @@ packages:
   concat-map@0.0.1:
     resolution: {integrity: sha512-/Srv4dswyQNBfohGpz9o6Yb3Gz3SrUDqBH5rTuhGR7ahtlbYKnVxw2bCFMRljaA7EXHaXZ8wsHdodFvbkhKmqg==}
 
-  convex-helpers@0.1.101-alpha.1:
-    resolution: {integrity: sha512-mC1omAngfYkzIxRnDQa1aSl5N+ZGR6Sg6vDz0p98FOqMxF8npw9u0yVePUQMpo5DJjCZyNK0nUt6Rh6W4WgTkA==}
+  convex-helpers@0.1.104:
+    resolution: {integrity: sha512-7CYvx7T3K6n+McDTK4ZQaQNNGBzq5aWezpjzsKbOxPXx7oNcTP9wrpef3JxeXWFzkByJv5hRCjseh9B7eNJ7Ig==}
     hasBin: true
     peerDependencies:
       '@standard-schema/spec': ^1.0.0
@@ -592,7 +595,7 @@ packages:
       hono: ^4.0.5
       react: ^17.0.2 || ^18.0.0 || ^19.0.0
       typescript: ^5.5
-      zod: ^3.22.4
+      zod: ^3.22.4 || ^4.0.15
     peerDependenciesMeta:
       '@standard-schema/spec':
         optional: true
@@ -1351,10 +1354,10 @@ snapshots:
 
   '@jridgewell/sourcemap-codec@1.5.4': {}
 
-  '@lunarhue/convex-service@file:..(convex-helpers@0.1.101-alpha.1(convex@1.25.4)(typescript@5.9.2)(zod@3.25.76))(convex@1.25.4)(zod@3.25.76)':
+  '@lunarhue/convex-service@file:..(convex-helpers@0.1.104(convex@1.25.4)(typescript@5.9.2)(zod@3.25.76))(convex@1.25.4)(zod@3.25.76)':
     dependencies:
       convex: 1.25.4
-      convex-helpers: 0.1.101-alpha.1(convex@1.25.4)(typescript@5.9.2)(zod@3.25.76)
+      convex-helpers: 0.1.104(convex@1.25.4)(typescript@5.9.2)(zod@3.25.76)
       zod: 3.25.76
 
   '@nodelib/fs.scandir@2.1.5':
@@ -1680,7 +1683,7 @@ snapshots:
 
   concat-map@0.0.1: {}
 
-  convex-helpers@0.1.101-alpha.1(convex@1.25.4)(typescript@5.9.2)(zod@3.25.76):
+  convex-helpers@0.1.104(convex@1.25.4)(typescript@5.9.2)(zod@3.25.76):
     dependencies:
       convex: 1.25.4
     optionalDependencies:

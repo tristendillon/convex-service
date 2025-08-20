@@ -13,6 +13,7 @@
     "test:coverage": "rm -rf node_modules/.vite && vitest run --coverage --coverage.reporter=text"
   },
   "dependencies": {
+    "convex-helpers": "^0.1.104",
     "@lunarhue/convex-service": "file:../",
     "convex": "^1.25.4"
   },

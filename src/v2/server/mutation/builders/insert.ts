@@ -9,6 +9,7 @@ import {
   type ExtractDocumentType,
   type ExtractDocumentTypeWithoutDefaults,
 } from '../types'
+import type { PipelineConfig } from '../pipeline/types'
 import {
   type GenericServiceSchema,
   type ServiceNamesInServiceSchema,
@@ -35,11 +36,17 @@ export class InsertBuilderImpl<
     this.pipeline = new OperationPipeline(tableName, ctx, schema)
   }
 
-  async one(document: TInput): Promise<GenericId<ServiceName>> {
-    return await this.pipeline.insert(document)
+  async one(
+    document: TInput,
+    config?: Partial<PipelineConfig>
+  ): Promise<GenericId<ServiceName>> {
+    return await this.pipeline.insert(document, config)
   }
 
-  async many(documents: TInput[]): Promise<GenericId<ServiceName>[]> {
-    return await this.pipeline.insertMany(documents)
+  async many(
+    documents: TInput[],
+    config?: Partial<PipelineConfig>
+  ): Promise<GenericId<ServiceName>[]> {
+    return await this.pipeline.insertMany(documents, config)
   }
 }

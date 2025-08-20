@@ -17,6 +17,7 @@ import {
   PatchManyBuilderImpl,
   DeleteOperations,
 } from './builders'
+import type { PipelineConfig } from './pipeline/types'
 
 export class ServiceDatabaseWriterImpl<
   DataModel extends GenericDataModel,
@@ -109,18 +110,21 @@ export class ServiceDatabaseWriterImpl<
 
   // Override delete with overloads for single vs multiple IDs
   delete<ServiceName extends ServiceNamesInServiceSchema<Schema>>(
-    id: GenericId<ServiceName>
+    id: GenericId<ServiceName>,
+    config?: Partial<PipelineConfig>
   ): Promise<GenericId<ServiceName>>
   delete<ServiceName extends ServiceNamesInServiceSchema<Schema>>(
-    ids: GenericId<ServiceName>[]
+    ids: GenericId<ServiceName>[],
+    config?: Partial<PipelineConfig>
   ): Promise<GenericId<ServiceName>[]>
   delete<ServiceName extends ServiceNamesInServiceSchema<Schema>>(
-    idOrIds: GenericId<ServiceName> | GenericId<ServiceName>[]
+    idOrIds: GenericId<ServiceName> | GenericId<ServiceName>[],
+    config?: Partial<PipelineConfig>
   ) {
     if (Array.isArray(idOrIds)) {
-      return this.deleteOperations.deleteMany(idOrIds)
+      return this.deleteOperations.deleteMany(idOrIds, config)
     } else {
-      return this.deleteOperations.deleteOne(idOrIds)
+      return this.deleteOperations.deleteOne(idOrIds, config)
     }
   }
 }

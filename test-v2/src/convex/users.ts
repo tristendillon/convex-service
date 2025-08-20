@@ -1,8 +1,8 @@
 import { v } from 'convex/values'
-import { customMutation } from '../lib/mutation'
+import { mutation } from '../lib/mutation'
 import { partial } from 'convex-helpers/validators'
 import { usersService } from './users.def'
-export const insert = customMutation({
+export const insert = mutation({
   args: {
     email: v.string(),
     firstName: v.string(),
@@ -16,7 +16,23 @@ export const insert = customMutation({
   },
 })
 
-export const patch = customMutation({
+export const insertWithoutRestrictions = mutation({
+  args: {
+    email: v.string(),
+    firstName: v.string(),
+    lastName: v.string(),
+    profileId: v.id('profiles'),
+  },
+  handler: async (ctx, args) => {
+    const inserted = await ctx.db
+      .insert('users')
+      .one(args, { restrictions: false })
+
+    return inserted
+  },
+})
+
+export const patch = mutation({
   args: {
     id: v.id('users'),
     patch: partial(usersService.validators.validator),
@@ -28,7 +44,7 @@ export const patch = customMutation({
   },
 })
 
-export const destroy = customMutation({
+export const destroy = mutation({
   args: {
     id: v.id('users'),
   },
@@ -39,7 +55,7 @@ export const destroy = customMutation({
   },
 })
 
-export const replace = customMutation({
+export const replace = mutation({
   args: {
     id: v.id('users'),
     replace: v.object({

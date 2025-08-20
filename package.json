@@ -9,7 +9,6 @@
     ".": "./dist/index.js",
     "./v2": "./dist/v2/index.js",
     "./v2/server": "./dist/v2/server/index.js",
-    "./v2/server/zod": "./dist/v2/server/zod/index.js",
     "./v2/server/hooks": "./dist/v2/server/hooks/index.js"
   },
   "scripts": {

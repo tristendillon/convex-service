@@ -12,6 +12,7 @@ import {
   type ServiceNamesInServiceSchema,
 } from '../../schema'
 import { OperationPipeline } from '../pipeline'
+import type { PipelineConfig } from '../pipeline/types'
 
 export class PatchOneBuilderImpl<
   DataModel extends GenericDataModel,
@@ -37,8 +38,8 @@ export class PatchOneBuilderImpl<
     )
   }
 
-  async one(document: Partial<TInput>): Promise<GenericId<ServiceName>> {
-    return await this.pipeline.patch(this.id, document)
+  async one(document: Partial<TInput>, config?: Partial<PipelineConfig>): Promise<GenericId<ServiceName>> {
+    return await this.pipeline.patch(this.id, document, config)
   }
 }
 
@@ -66,7 +67,7 @@ export class PatchManyBuilderImpl<
     )
   }
 
-  async many(documents: Partial<TInput>[]): Promise<GenericId<ServiceName>[]> {
-    return await this.pipeline.patchMany(this.ids, documents)
+  async many(documents: Partial<TInput>[], config?: Partial<PipelineConfig>): Promise<GenericId<ServiceName>[]> {
+    return await this.pipeline.patchMany(this.ids, documents, config)
   }
 }

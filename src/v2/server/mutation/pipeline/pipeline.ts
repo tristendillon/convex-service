@@ -16,7 +16,7 @@ import { RelationsStage } from './stages/relations'
 import { BeforeHookStage } from './stages/before-hooks'
 import { ExecuteStage } from './stages/execute'
 import { AfterHookStage } from './stages/after-hooks'
-import { getDefaultConfig } from './configs'
+import { getDefaultConfig, mergeWithDefaults } from './configs'
 
 export class OperationPipeline<
   DataModel extends GenericDataModel,
@@ -132,69 +132,82 @@ export class OperationPipeline<
   }
 
   // Convenience methods for different operations
-  async insert(data: any): Promise<GenericId<ServiceName>> {
-    return this.executeOperation('insert', data)
+  async insert(data: any, config?: Partial<PipelineConfig>): Promise<GenericId<ServiceName>> {
+    const mergedConfig = mergeWithDefaults('insert', config)
+    return this.executeOperation('insert', data, undefined, mergedConfig)
   }
 
-  async insertMany(data: any[]): Promise<GenericId<ServiceName>[]> {
+  async insertMany(data: any[], config?: Partial<PipelineConfig>): Promise<GenericId<ServiceName>[]> {
+    const mergedConfig = mergeWithDefaults('insert', config)
     return Promise.all(
-      data.map((item) => this.executeOperation('insert', item))
+      data.map((item) => this.executeOperation('insert', item, undefined, mergedConfig))
     )
   }
 
   async patch(
     id: GenericId<ServiceName>,
-    data: any
+    data: any,
+    config?: Partial<PipelineConfig>
   ): Promise<GenericId<ServiceName>> {
-    return this.executeOperation('patch', data, id)
+    const mergedConfig = mergeWithDefaults('patch', config)
+    return this.executeOperation('patch', data, id, mergedConfig)
   }
 
   async patchMany(
     ids: GenericId<ServiceName>[],
-    data: any[]
+    data: any[],
+    config?: Partial<PipelineConfig>
   ): Promise<GenericId<ServiceName>[]> {
     if (ids.length !== data.length) {
       throw new Error(
         `ID count (${ids.length}) must match data count (${data.length})`
       )
     }
+    const mergedConfig = mergeWithDefaults('patch', config)
     return Promise.all(
-      ids.map((id, index) => this.executeOperation('patch', data[index], id))
+      ids.map((id, index) => this.executeOperation('patch', data[index], id, mergedConfig))
     )
   }
 
   async replace(
     id: GenericId<ServiceName>,
-    data: any
+    data: any,
+    config?: Partial<PipelineConfig>
   ): Promise<GenericId<ServiceName>> {
-    return this.executeOperation('replace', data, id)
+    const mergedConfig = mergeWithDefaults('replace', config)
+    return this.executeOperation('replace', data, id, mergedConfig)
   }
 
   async replaceMany(
     ids: GenericId<ServiceName>[],
-    data: any[]
+    data: any[],
+    config?: Partial<PipelineConfig>
   ): Promise<GenericId<ServiceName>[]> {
     if (ids.length !== data.length) {
       throw new Error(
         `ID count (${ids.length}) must match data count (${data.length})`
       )
     }
+    const mergedConfig = mergeWithDefaults('replace', config)
     return Promise.all(
-      ids.map((id, index) => this.executeOperation('replace', data[index], id))
+      ids.map((id, index) => this.executeOperation('replace', data[index], id, mergedConfig))
     )
   }
 
-  async delete(id: GenericId<ServiceName>): Promise<GenericId<ServiceName>> {
-    return this.executeOperation('delete', undefined, id)
+  async delete(id: GenericId<ServiceName>, config?: Partial<PipelineConfig>): Promise<GenericId<ServiceName>> {
+    const mergedConfig = mergeWithDefaults('delete', config)
+    return this.executeOperation('delete', undefined, id, mergedConfig)
   }
 
   async deleteMany(
-    ids: GenericId<ServiceName>[]
+    ids: GenericId<ServiceName>[],
+    config?: Partial<PipelineConfig>
   ): Promise<GenericId<ServiceName>[]> {
     // For delete operations, we can process them individually or in batch
     // Let's process them individually to ensure proper hook execution per item
+    const mergedConfig = mergeWithDefaults('delete', config)
     return Promise.all(
-      ids.map((id) => this.executeOperation('delete', undefined, id))
+      ids.map((id) => this.executeOperation('delete', undefined, id, mergedConfig))
     )
   }
 }

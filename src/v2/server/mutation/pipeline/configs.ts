@@ -39,3 +39,17 @@ export const PIPELINE_CONFIGS: Record<OperationType, PipelineConfig> = {
 export function getDefaultConfig(operation: OperationType): PipelineConfig {
   return { ...PIPELINE_CONFIGS[operation] }
 }
+
+export function mergeWithDefaults(
+  operation: OperationType,
+  partialConfig?: Partial<PipelineConfig>
+): PipelineConfig {
+  if (!partialConfig) {
+    return getDefaultConfig(operation)
+  }
+  
+  return {
+    ...getDefaultConfig(operation),
+    ...partialConfig,
+  }
+}
